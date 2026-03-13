@@ -1,0 +1,6 @@
+import { writable } from 'svelte/store';
+import type { SortBy, TimeRange } from '$lib/types';
+
+export const sortBy = writable<SortBy>('likes');
+export const timeRange = writable<TimeRange>('24h');
+export const selectedGenres = writable<string[]>([]);
