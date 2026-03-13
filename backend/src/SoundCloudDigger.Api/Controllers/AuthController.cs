@@ -62,9 +62,16 @@ public class AuthController : Controller
         // Use IServiceScopeFactory to avoid scoped service disposal issues
         _ = Task.Run(async () =>
         {
-            using var scope = _scopeFactory.CreateScope();
-            var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
-            await feedService.StartFetchAsync(sessionId);
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
+                await feedService.StartFetchAsync(sessionId);
+            }
+            catch
+            {
+                // Best effort — feed loading failure is visible to user via loadingComplete staying false
+            }
         });
 
         var frontendUrl = _config["FrontendUrl"] ?? "http://localhost:5173";

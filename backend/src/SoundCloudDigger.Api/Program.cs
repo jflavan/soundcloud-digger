@@ -42,7 +42,6 @@ _ = Task.Run(async () =>
     {
         await Task.Delay(TimeSpan.FromMinutes(5));
         var cache = app.Services.GetRequiredService<IFeedCache>();
-        var tokenService = app.Services.GetRequiredService<ITokenService>();
 
         foreach (var sessionId in cache.GetActiveSessionIds())
         {
