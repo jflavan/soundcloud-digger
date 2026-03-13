@@ -1183,21 +1183,23 @@ public class FeedServiceTests
     public async Task StartFetch_On401_RefreshesTokenAndRetries()
     {
         var now = DateTime.UtcNow;
-        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
-        _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(false);
 
-        var callCount = 0;
-        _mockClient.Setup(c => c.GetFeedTracks(It.IsAny<string>(), 200, null))
-            .ReturnsAsync(() =>
-            {
-                callCount++;
-                if (callCount == 1)
-                    throw new HttpRequestException("Unauthorized", null, System.Net.HttpStatusCode.Unauthorized);
-                return MakeResponse([("Track A", now, 100)]);
-            });
+        // First call: token is valid (not expired), returns ("token", "refresh")
+        // After 401 + refresh: returns ("new_token", "new_refresh")
+        _mockTokenService.SetupSequence(t => t.IsExpired("s1"))
+            .Returns(false)   // initial GetValidAccessToken check
+            .Returns(true);   // after 401, force refresh path
 
-        _mockTokenService.Setup(t => t.Get("s1"))
-            .Returns(("token", "refresh"));
+        _mockTokenService.SetupSequence(t => t.Get("s1"))
+            .Returns(("token", "refresh"))       // initial GetValidAccessToken
+            .Returns(("token", "refresh"))        // get refresh token for RefreshAccessToken call
+            .Returns(("new_token", "new_refresh")); // after UpdateTokens, return new token
+
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ThrowsAsync(new HttpRequestException("Unauthorized", null, System.Net.HttpStatusCode.Unauthorized));
+        _mockClient.Setup(c => c.GetFeedTracks("new_token", 200, null))
+            .ReturnsAsync(MakeResponse([("Track A", now, 100)]));
+
         _mockClient.Setup(c => c.RefreshAccessToken("refresh"))
             .ReturnsAsync(new SoundCloudTokenResponse
             {
@@ -1206,15 +1208,10 @@ public class FeedServiceTests
                 ExpiresIn = 3600,
             });
 
-        // After refresh, return different token
-        _mockTokenService.SetupSequence(t => t.Get("s1"))
-            .Returns(("token", "refresh"))
-            .Returns(("token", "refresh"))
-            .Returns(("new_token", "new_refresh"));
-
         await _sut.StartFetchAsync("s1");
 
         Assert.Single(_cache.GetTracks("s1"));
+        _mockTokenService.Verify(t => t.UpdateTokens("s1", "new_token", "new_refresh", 3600));
     }
 }
 ```
@@ -1415,13 +1412,13 @@ cd /Users/highfiveghost/conductor/workspaces/soundcloud-digger/sao-paulo/backend
 dotnet test --filter "FeedServiceTests" --verbosity normal
 ```
 
-Expected: All 5 tests PASS.
+Expected: All 6 tests PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add backend/src/SoundCloudDigger.Api/Services/IFeedService.cs backend/src/SoundCloudDigger.Api/Services/FeedService.cs backend/tests/SoundCloudDigger.Tests/Services/FeedServiceTests.cs
-git commit -m "feat: add feed service with pagination, 24h cutoff, and 429 backoff"
+git commit -m "feat: add feed service with pagination, 24h cutoff, 429 backoff, and 401 token refresh"
 ```
 
 ---
@@ -1825,7 +1822,7 @@ cd /Users/highfiveghost/conductor/workspaces/soundcloud-digger/sao-paulo/backend
 dotnet test --verbosity normal
 ```
 
-Expected: All tests PASS (PKCE: 4, TokenService: 6, FeedCache: 6, FeedService: 5, AuthController: 4, FeedController: 3 = 28 total).
+Expected: All tests PASS (PKCE: 4, TokenService: 6, FeedCache: 6, FeedService: 6, AuthController: 4, FeedController: 3 = 29 total).
 
 - [ ] **Step 6: Commit**
 
@@ -3014,7 +3011,7 @@ cd /Users/highfiveghost/conductor/workspaces/soundcloud-digger/sao-paulo/fronten
 npx vitest run
 ```
 
-Expected: All 7 tests PASS.
+Expected: All 9 tests PASS (7 store + 2 component).
 
 - [ ] **Step 3: Verify both projects build cleanly**
 
