@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SoundCloudDigger.Api/SoundCloudDigger.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SoundCloudDigger.Tests/SoundCloudDigger.Tests.csproj" />
+  </Folder>
+</Solution>
