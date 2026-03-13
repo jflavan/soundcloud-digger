@@ -1,7 +1,7 @@
 <div class="login-page">
 	<h1>SoundCloud Digger</h1>
 	<p>Sort your feed by likes. Filter by genre.</p>
-	<a href="/auth/login" class="login-button">Log in with SoundCloud</a>
+	<a href="/auth/login" class="login-button" data-sveltekit-reload>Log in with SoundCloud</a>
 </div>
 
 <style>
