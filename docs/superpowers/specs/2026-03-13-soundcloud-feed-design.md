@@ -29,7 +29,7 @@ OAuth 2.1 Authorization Code flow with PKCE, per SoundCloud's requirements.
 4. User approves on SoundCloud
 5. SoundCloud redirects to backend callback with authorization code
 6. Backend exchanges code + code_verifier for tokens via `POST https://secure.soundcloud.com/oauth/token` (grant_type=authorization_code, includes client_id and client_secret)
-7. Access token + refresh token stored server-side in HTTP-only session cookie
+7. Tokens stored in an in-memory session store on the server. A session ID is issued to the client as an HTTP-only cookie — tokens never leave the server
 8. User redirected to Svelte app, background feed fetch kicks off
 
 ### Token Management
@@ -57,10 +57,11 @@ OAuth 2.1 Authorization Code flow with PKCE, per SoundCloud's requirements.
 {
   "tracks": [FeedTrack],
   "totalCount": 1842,
-  "loadingComplete": true,
-  "availableGenres": ["Electronic", "Ambient", "Hip-hop"]
+  "loadingComplete": true
 }
 ```
+
+`loadingComplete` is `false` while the background feed fetch is still running. When `false`, `tracks` contains whatever has been fetched so far and `totalCount` reflects the current count. The frontend polls this endpoint every 2 seconds until `loadingComplete` is `true`.
 
 ### Feed Service
 
@@ -68,7 +69,7 @@ OAuth 2.1 Authorization Code flow with PKCE, per SoundCloud's requirements.
 
 **Background refresh:** Every ~5 minutes, fetches new items. Stops when it encounters tracks already in cache.
 
-**Rate limit awareness:** Tracks API call count, backs off with exponential delay when approaching SoundCloud's rate limits.
+**Rate limit awareness:** Tracks API call count and backs off with exponential delay on 429 responses. The documented rate limits (50 tokens/12h per app, 30/1h per IP) are for the client credentials flow; the authorization code flow may have different limits. The backend should detect 429s dynamically rather than relying on hardcoded thresholds.
 
 **Cache:** In-memory, keyed per user, ~5 minute TTL for refresh checks. Full dataset retained until session expires.
 
@@ -105,7 +106,7 @@ Mapped from SoundCloud's track schema (via the `origin` field in activity items)
 **ControlsBar** — horizontal bar above the track list:
 - Sort toggle: Likes / Date (default: Likes)
 - Time range buttons: 24h / 7d / 30d / All (default: 24h)
-- Tag filter: multi-select dropdown populated from genres present in the feed data
+- Genre filter: multi-select dropdown populated from the `genre` field of tracks in the feed. This filters on the `genre` field only, not `tag_list`
 
 **TrackList** — scrollable vertical list of TrackRow components.
 
@@ -120,7 +121,9 @@ Svelte stores:
 - `filterStore` — current sort, time range, and tag selections
 - `filteredFeedStore` (derived) — computed from feedStore + filterStore
 
-All sorting and filtering happens client-side after the initial load. The backend is only called for auth, initial feed fetch, and periodic refresh.
+All sorting and filtering happens client-side after the initial load. The backend is only called for auth, initial feed fetch, and periodic refresh. Available genres for the filter dropdown are derived client-side from the `genre` field across all tracks in `feedStore`.
+
+**Frontend refresh:** The frontend polls `GET /api/feed` every 60 seconds after initial load is complete, to pick up new tracks from the backend's background refresh.
 
 ### Layout
 
@@ -139,10 +142,10 @@ Horizontal controls bar at the top, vertical track list below. Each track row sh
 
 ## Testing
 
-**Backend unit tests:** Feed service (sorting, filtering, time range, pagination), auth (PKCE generation, token exchange, refresh token rotation).
+**Backend unit tests:** Feed service (pagination assembly, cache management, 429 backoff logic), auth (PKCE generation, token exchange, refresh token rotation).
+
+**Frontend unit tests:** Sorting logic (by likes, by date), filtering logic (time range, genre), derived store computation. ControlsBar state changes, TrackList rendering and empty states.
 
 **Backend integration tests:** Optional round-trip against SoundCloud API with test account.
 
-**Frontend component tests:** ControlsBar state changes, TrackList rendering and empty states.
-
-**E2E test:** Login → feed load → sort by likes → filter by tag → verify results.
+**E2E test:** Login → feed load → sort by likes → filter by genre → verify results.
