@@ -95,6 +95,7 @@
 	.duration {
 		color: #888;
 		font-size: 12px;
+		line-height: 1;
 		flex-shrink: 0;
 	}
 </style>
