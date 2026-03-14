@@ -147,7 +147,7 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		background: #e94560;
+		background: #f50;
 		border-radius: 2px;
 	}
 	.thumb {
@@ -155,7 +155,7 @@
 		top: 50%;
 		width: 14px;
 		height: 14px;
-		background: #e94560;
+		background: #f50;
 		border: 2px solid #fff;
 		border-radius: 50%;
 		transform: translate(-50%, -50%);

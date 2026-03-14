@@ -97,7 +97,7 @@
 		align-items: center;
 		flex-wrap: wrap;
 		padding: 12px 16px;
-		background: #16213e;
+		background: #1a1a1a;
 		border-radius: 8px;
 	}
 	.control-group {
@@ -120,7 +120,7 @@
 		font-size: 13px;
 	}
 	.toggle.active {
-		background: #e94560;
+		background: #f50;
 		color: white;
 	}
 	.genre-group {
@@ -139,7 +139,7 @@
 		position: absolute;
 		top: 100%;
 		left: 0;
-		background: #16213e;
+		background: #1a1a1a;
 		border: 1px solid #333;
 		border-radius: 6px;
 		padding: 8px 0;
@@ -159,6 +159,6 @@
 		cursor: pointer;
 	}
 	.dropdown-item:hover {
-		background: #1a2744;
+		background: #222;
 	}
 </style>

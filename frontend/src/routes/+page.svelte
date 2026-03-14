@@ -14,16 +14,16 @@
 		text-align: center;
 	}
 	h1 {
-		color: #e94560;
+		color: #f50;
 		font-size: 32px;
 		margin-bottom: 8px;
 	}
 	p {
-		color: #aaa;
+		color: #999;
 		margin-bottom: 32px;
 	}
 	.login-button {
-		background: #e94560;
+		background: #f50;
 		color: white;
 		padding: 12px 32px;
 		border-radius: 6px;
@@ -31,6 +31,6 @@
 		font-size: 16px;
 	}
 	.login-button:hover {
-		background: #d63851;
+		background: #e64a00;
 	}
 </style>

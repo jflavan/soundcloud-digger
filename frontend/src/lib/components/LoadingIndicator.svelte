@@ -9,7 +9,7 @@
 <style>
 	.loading {
 		text-align: center;
-		color: #aaa;
+		color: #999;
 		padding: 24px 0;
 		font-size: 14px;
 	}

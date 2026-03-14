@@ -97,21 +97,21 @@
 		align-items: center;
 	}
 	h1 {
-		color: #e94560;
+		color: #f50;
 		font-size: 24px;
 		margin: 0;
 	}
 	.logout {
 		background: transparent;
 		border: 1px solid #333;
-		color: #888;
+		color: #999;
 		padding: 6px 12px;
 		border-radius: 4px;
 		cursor: pointer;
 	}
 	.error {
 		text-align: center;
-		color: #e94560;
+		color: #f50;
 		padding: 16px;
 	}
 </style>
