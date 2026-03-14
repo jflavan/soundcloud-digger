@@ -48,12 +48,12 @@
 		gap: 12px;
 		padding: 8px 12px;
 		border-radius: 6px;
-		background: #16213e;
+		background: #1a1a1a;
 		text-decoration: none;
 		color: inherit;
 	}
 	.track-row:hover {
-		background: #1a2744;
+		background: #222;
 	}
 	.artwork {
 		border-radius: 4px;
@@ -67,7 +67,7 @@
 		flex-direction: column;
 	}
 	.title {
-		color: #eee;
+		color: #e5e5e5;
 		font-size: 14px;
 		white-space: nowrap;
 		overflow: hidden;
@@ -90,7 +90,7 @@
 		white-space: nowrap;
 	}
 	.stat.likes {
-		color: #e94560;
+		color: #f50;
 	}
 	.duration {
 		color: #888;
