@@ -6,6 +6,8 @@ export interface FeedTrack {
 	tags: string[];
 	likesCount: number;
 	playbackCount: number;
+	repostsCount: number;
+	commentCount: number;
 	createdAt: string;
 	permalinkUrl: string | null;
 	duration: number;
@@ -20,5 +22,5 @@ export interface FeedResponse {
 	loadingComplete: boolean;
 }
 
-export type SortBy = 'likes' | 'date';
+export type SortBy = 'likes' | 'date' | 'plays' | 'reposts' | 'comments';
 export type TimeRange = '24h' | '7d' | '30d' | 'all';

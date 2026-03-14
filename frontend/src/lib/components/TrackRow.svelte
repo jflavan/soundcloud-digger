@@ -9,7 +9,7 @@
 		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	}
 
-	function formatLikes(count: number): string {
+	function formatCount(count: number): string {
 		if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
 		return count.toString();
 	}
@@ -32,7 +32,12 @@
 		<span class="title">{track.title}</span>
 		<span class="meta">{track.artistName}{track.genre ? ` · ${track.genre}` : ''}</span>
 	</div>
-	<span class="likes">♥ {formatLikes(track.likesCount)}</span>
+	<div class="stats">
+		<span class="stat likes">♥ {formatCount(track.likesCount)}</span>
+		<span class="stat plays">▶ {formatCount(track.playbackCount)}</span>
+		<span class="stat reposts">↻ {formatCount(track.repostsCount)}</span>
+		<span class="stat comments">💬 {formatCount(track.commentCount)}</span>
+	</div>
 	<span class="duration">{formatDuration(track.duration)}</span>
 </a>
 
@@ -72,14 +77,25 @@
 		color: #888;
 		font-size: 12px;
 	}
-	.likes {
-		color: #e94560;
-		font-size: 13px;
+	.stats {
+		display: flex;
+		align-items: center;
+		gap: 10px;
 		flex-shrink: 0;
+	}
+	.stat {
+		font-size: 12px;
+		line-height: 1;
+		color: #888;
+		white-space: nowrap;
+	}
+	.stat.likes {
+		color: #e94560;
 	}
 	.duration {
 		color: #888;
 		font-size: 12px;
+		line-height: 1;
 		flex-shrink: 0;
 	}
 </style>

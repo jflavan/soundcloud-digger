@@ -7,6 +7,9 @@
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'likes', label: 'Likes' },
+		{ value: 'plays', label: 'Plays' },
+		{ value: 'reposts', label: 'Reposts' },
+		{ value: 'comments', label: 'Comments' },
 		{ value: 'date', label: 'Date' },
 	];
 

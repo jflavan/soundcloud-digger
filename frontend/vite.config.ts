@@ -9,9 +9,11 @@ export default defineConfig({
 		environment: 'jsdom',
 	},
 	server: {
+		port: 5173,
+		strictPort: true,
 		proxy: {
-			'/api': 'http://localhost:5000',
-			'/auth': 'http://localhost:5000',
+			'/api': 'http://localhost:5032',
+			'/auth': 'http://localhost:5032',
 		},
 	},
 });

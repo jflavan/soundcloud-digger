@@ -9,6 +9,8 @@ public class FeedTrack
     public List<string> Tags { get; set; } = [];
     public int LikesCount { get; set; }
     public int PlaybackCount { get; set; }
+    public int RepostsCount { get; set; }
+    public int CommentCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? PermalinkUrl { get; set; }
     public int Duration { get; set; }
@@ -30,6 +32,8 @@ public class FeedTrack
             Tags = ParseTagList(track.TagList),
             LikesCount = track.FavoritingsCount ?? 0,
             PlaybackCount = track.PlaybackCount ?? 0,
+            RepostsCount = track.RepostsCount ?? 0,
+            CommentCount = track.CommentCount ?? 0,
             CreatedAt = track.CreatedAt,
             PermalinkUrl = track.PermalinkUrl,
             Duration = track.Duration ?? 0,

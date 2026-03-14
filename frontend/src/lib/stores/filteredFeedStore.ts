@@ -32,6 +32,12 @@ export function filterAndSort(
 	const sorted = [...filtered];
 	if (sort === 'likes') {
 		sorted.sort((a, b) => b.likesCount - a.likesCount);
+	} else if (sort === 'plays') {
+		sorted.sort((a, b) => b.playbackCount - a.playbackCount);
+	} else if (sort === 'reposts') {
+		sorted.sort((a, b) => b.repostsCount - a.repostsCount);
+	} else if (sort === 'comments') {
+		sorted.sort((a, b) => b.commentCount - a.commentCount);
 	} else {
 		sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 	}

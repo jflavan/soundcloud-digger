@@ -12,6 +12,8 @@ function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
 		tags: [],
 		likesCount: 100,
 		playbackCount: 500,
+		repostsCount: 50,
+		commentCount: 10,
 		createdAt: new Date().toISOString(),
 		permalinkUrl: 'https://soundcloud.com/test',
 		duration: 180000,
