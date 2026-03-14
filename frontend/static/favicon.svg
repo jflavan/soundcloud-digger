@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- SoundCloud orange cloud shape -->
+  <path d="M52 44H22c-5.5 0-10-4.5-10-10 0-4.8 3.4-8.9 8-9.8C20.7 18.5 25.8 14 32 14c4.2 0 7.9 2 10.3 5.1C43.5 18.4 44.7 18 46 18c4.4 0 8 3.6 8 8 0 .7-.1 1.3-.3 2C56.9 29.2 59 32.3 59 36c0 4.4-3.1 8-7 8z" fill="#FF5500"/>
+
+  <!-- Sound bars inside the cloud -->
+  <rect x="18" y="30" width="2.5" height="10" rx="1.25" fill="white"/>
+  <rect x="23" y="26" width="2.5" height="14" rx="1.25" fill="white"/>
+  <rect x="28" y="23" width="2.5" height="17" rx="1.25" fill="white"/>
+  <rect x="33" y="25" width="2.5" height="15" rx="1.25" fill="white"/>
+  <rect x="38" y="22" width="2.5" height="18" rx="1.25" fill="white"/>
+  <rect x="43" y="24" width="2.5" height="16" rx="1.25" fill="white"/>
+  <rect x="48" y="28" width="2.5" height="12" rx="1.25" fill="white"/>
+
+  <!--
+    Shovel geometry:
+    Handle from (10,5) to (40,46)
+    Direction vector: (30,41), unit ≈ (0.59, 0.81)
+    Perpendicular unit ≈ (-0.81, 0.59)
+    Blade centered on handle end, extending along handle direction.
+    Left shoulder:  (40 - 9*0.81, 46 + 9*0.59) = (32.7, 51.3)
+    Right shoulder: (40 + 9*0.81, 46 - 9*0.59) = (47.3, 40.7)
+    Tip:            (40 + 16*0.59, 46 + 16*0.81) = (49.4, 59.0)
+  -->
+
+  <!-- Shovel blade - outline -->
+  <path d="M32.7 51.3 Q38 63, 49.4 59 Q54 49, 47.3 40.7 Z"
+        fill="#888" stroke="#333" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Shovel blade - highlight -->
+  <path d="M34.5 50 Q39 60, 48.5 57 Q52 49, 46.5 42.5 Z"
+        fill="#ABABAB"/>
+
+  <!-- Shovel collar (socket where handle meets blade) -->
+  <ellipse cx="40" cy="46" rx="5" ry="3.5"
+           transform="rotate(54, 40, 46)"
+           fill="#555" stroke="#333" stroke-width="1.5"/>
+
+  <!-- Shovel handle - outline for contrast -->
+  <line x1="10" y1="5" x2="40" y2="46" stroke="#1A0E05" stroke-width="7" stroke-linecap="round"/>
+  <!-- Shovel handle - wood color -->
+  <line x1="10" y1="5" x2="40" y2="46" stroke="#7A4A1E" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- T-grip outline -->
+  <line x1="3" y1="10" x2="17" y2="0" stroke="#1A0E05" stroke-width="7" stroke-linecap="round"/>
+  <!-- T-grip wood color -->
+  <line x1="3" y1="10" x2="17" y2="0" stroke="#7A4A1E" stroke-width="5" stroke-linecap="round"/>
+</svg>
