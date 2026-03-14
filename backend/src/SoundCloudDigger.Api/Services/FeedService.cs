@@ -26,7 +26,7 @@ public class FeedService : IFeedService
         if (accessToken is null) return;
 
         _cache.Clear(sessionId);
-        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var cutoff = DateTime.UtcNow.AddDays(-30);
         string? nextHref = null;
         var totalFetched = 0;
         var tokenHolder = new TokenHolder(accessToken);
