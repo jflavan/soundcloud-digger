@@ -11,6 +11,8 @@ function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
 		tags: [],
 		likesCount: 100,
 		playbackCount: 500,
+		repostsCount: 50,
+		commentCount: 10,
 		createdAt: new Date().toISOString(),
 		permalinkUrl: null,
 		duration: 180000,
@@ -30,6 +32,39 @@ describe('filterAndSort', () => {
 		];
 
 		const result = filterAndSort(tracks, 'likes', 'all', []);
+		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
+	});
+
+	it('sorts by plays descending', () => {
+		const tracks = [
+			makeTrack({ title: 'Low', playbackCount: 100 }),
+			makeTrack({ title: 'High', playbackCount: 10000 }),
+			makeTrack({ title: 'Mid', playbackCount: 1000 }),
+		];
+
+		const result = filterAndSort(tracks, 'plays', 'all', []);
+		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
+	});
+
+	it('sorts by reposts descending', () => {
+		const tracks = [
+			makeTrack({ title: 'Low', repostsCount: 5 }),
+			makeTrack({ title: 'High', repostsCount: 500 }),
+			makeTrack({ title: 'Mid', repostsCount: 50 }),
+		];
+
+		const result = filterAndSort(tracks, 'reposts', 'all', []);
+		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
+	});
+
+	it('sorts by comments descending', () => {
+		const tracks = [
+			makeTrack({ title: 'Low', commentCount: 1 }),
+			makeTrack({ title: 'High', commentCount: 100 }),
+			makeTrack({ title: 'Mid', commentCount: 10 }),
+		];
+
+		const result = filterAndSort(tracks, 'comments', 'all', []);
 		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
 	});
 

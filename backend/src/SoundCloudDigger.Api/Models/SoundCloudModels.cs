@@ -80,6 +80,12 @@ public class SoundCloudTrack
     [JsonPropertyName("playback_count")]
     public int? PlaybackCount { get; set; }
 
+    [JsonPropertyName("reposts_count")]
+    public int? RepostsCount { get; set; }
+
+    [JsonPropertyName("comment_count")]
+    public int? CommentCount { get; set; }
+
     [JsonPropertyName("created_at")]
     [JsonConverter(typeof(SoundCloudDateTimeConverter))]
     public DateTime CreatedAt { get; set; }
