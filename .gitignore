@@ -1,0 +1,21 @@
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Superpowers folders
+.superpowers/
+docs/superpowers/
+
+# Development settings
+appsettings.Development.json
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Playwright MCP
+.playwright-mcp/
