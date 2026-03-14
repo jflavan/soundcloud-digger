@@ -79,11 +79,13 @@
 	}
 	.stats {
 		display: flex;
+		align-items: center;
 		gap: 10px;
 		flex-shrink: 0;
 	}
 	.stat {
 		font-size: 12px;
+		line-height: 1;
 		color: #888;
 		white-space: nowrap;
 	}
