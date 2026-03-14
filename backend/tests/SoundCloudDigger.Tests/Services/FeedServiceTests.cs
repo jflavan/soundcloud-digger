@@ -122,6 +122,7 @@ public class FeedServiceTests
 
         _mockTokenService.SetupSequence(t => t.IsExpired("s1"))
             .Returns(false)
+            .Returns(true)
             .Returns(true);
 
         _mockTokenService.SetupSequence(t => t.Get("s1"))

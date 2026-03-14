@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using SoundCloudDigger.Api.Models;
 
@@ -8,6 +9,7 @@ public class FeedService : IFeedService
     private readonly ISoundCloudClient _client;
     private readonly IFeedCache _cache;
     private readonly ITokenService _tokenService;
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _refreshLocks = new();
     private const int MaxTracks = 10_000;
     private const int MaxRetries = 3;
 
@@ -111,8 +113,17 @@ public class FeedService : IFeedService
 
     private async Task<string?> GetValidAccessToken(string sessionId)
     {
-        if (_tokenService.IsExpired(sessionId))
+        if (!_tokenService.IsExpired(sessionId))
+            return _tokenService.Get(sessionId)?.AccessToken;
+
+        var semaphore = _refreshLocks.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync();
+        try
         {
+            // Re-check after acquiring lock — another caller may have already refreshed
+            if (!_tokenService.IsExpired(sessionId))
+                return _tokenService.Get(sessionId)?.AccessToken;
+
             var tokens = _tokenService.Get(sessionId);
             if (tokens is null) return null;
 
@@ -127,8 +138,10 @@ public class FeedService : IFeedService
                 return null;
             }
         }
-
-        return _tokenService.Get(sessionId)?.AccessToken;
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     private async Task<SoundCloudActivitiesResponse> FetchWithRetryAndRefresh(

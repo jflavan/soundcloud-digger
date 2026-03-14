@@ -48,7 +48,7 @@ public class AuthController : Controller
     public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] string state)
     {
         var expectedState = HttpContext.Session.GetString("oauth_state");
-        if (state != expectedState)
+        if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(expectedState) || state != expectedState)
             return BadRequest("Invalid state parameter");
 
         var verifier = HttpContext.Session.GetString("pkce_verifier")!;
