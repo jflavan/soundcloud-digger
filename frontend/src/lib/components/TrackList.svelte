@@ -11,7 +11,7 @@
 	</div>
 {:else}
 	<div class="track-list">
-		{#each tracks as track (track.permalinkUrl ?? track.title + track.artistName)}
+		{#each tracks as track, i (track.permalinkUrl ? track.permalinkUrl + '-' + i : i)}
 			<TrackRow {track} />
 		{/each}
 	</div>

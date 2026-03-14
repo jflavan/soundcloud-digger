@@ -50,8 +50,8 @@ describe('filterAndSort', () => {
 		const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
 		const tracks = [
-			makeTrack({ title: 'Recent', createdAt: yesterday.toISOString() }),
-			makeTrack({ title: 'Old', createdAt: twoDaysAgo.toISOString() }),
+			makeTrack({ title: 'Recent', appearedAt: yesterday.toISOString() }),
+			makeTrack({ title: 'Old', appearedAt: twoDaysAgo.toISOString() }),
 		];
 
 		const result = filterAndSort(tracks, 'likes', '24h', []);
@@ -65,8 +65,8 @@ describe('filterAndSort', () => {
 		const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
 
 		const tracks = [
-			makeTrack({ title: 'Recent', createdAt: threeDaysAgo.toISOString() }),
-			makeTrack({ title: 'Old', createdAt: tenDaysAgo.toISOString() }),
+			makeTrack({ title: 'Recent', appearedAt: threeDaysAgo.toISOString() }),
+			makeTrack({ title: 'Old', appearedAt: tenDaysAgo.toISOString() }),
 		];
 
 		const result = filterAndSort(tracks, 'likes', '7d', []);
@@ -113,9 +113,9 @@ describe('filterAndSort', () => {
 		const old = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
 		const tracks = [
-			makeTrack({ title: 'A', genre: 'Electronic', createdAt: recent.toISOString() }),
-			makeTrack({ title: 'B', genre: 'Hip-hop', createdAt: recent.toISOString() }),
-			makeTrack({ title: 'C', genre: 'Electronic', createdAt: old.toISOString() }),
+			makeTrack({ title: 'A', genre: 'Electronic', appearedAt: recent.toISOString() }),
+			makeTrack({ title: 'B', genre: 'Hip-hop', appearedAt: recent.toISOString() }),
+			makeTrack({ title: 'C', genre: 'Electronic', appearedAt: old.toISOString() }),
 		];
 
 		const result = filterAndSort(tracks, 'likes', '24h', ['Electronic']);

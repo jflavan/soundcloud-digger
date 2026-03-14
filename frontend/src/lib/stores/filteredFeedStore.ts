@@ -22,7 +22,7 @@ export function filterAndSort(
 	let filtered = tracks;
 
 	if (range !== 'all') {
-		filtered = filtered.filter((t) => now - new Date(t.createdAt).getTime() <= cutoff);
+		filtered = filtered.filter((t) => now - new Date(t.appearedAt).getTime() <= cutoff);
 	}
 
 	if (genres.length > 0) {

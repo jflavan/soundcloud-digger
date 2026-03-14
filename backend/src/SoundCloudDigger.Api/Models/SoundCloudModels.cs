@@ -1,6 +1,39 @@
+using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SoundCloudDigger.Api.Models;
+
+public class SoundCloudDateTimeConverter : JsonConverter<DateTime>
+{
+    private static readonly string[] Formats =
+    [
+        "yyyy/MM/dd HH:mm:ss zzz",
+        "yyyy-MM-ddTHH:mm:ssZ",
+        "yyyy-MM-ddTHH:mm:ss.fffZ",
+        "yyyy/MM/dd HH:mm:ss '+0000'",
+    ];
+
+    public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var value = reader.GetString();
+        if (value is null) return default;
+
+        // SoundCloud uses "2026/03/13 21:22:58 +0000" format
+        if (DateTimeOffset.TryParseExact(value, Formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto))
+            return dto.UtcDateTime;
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out dto))
+            return dto.UtcDateTime;
+
+        return default;
+    }
+
+    public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString("O"));
+    }
+}
 
 public class SoundCloudActivitiesResponse
 {
@@ -20,6 +53,7 @@ public class SoundCloudActivity
     public string Type { get; set; } = "";
 
     [JsonPropertyName("created_at")]
+    [JsonConverter(typeof(SoundCloudDateTimeConverter))]
     public DateTime CreatedAt { get; set; }
 
     [JsonPropertyName("origin")]
@@ -41,19 +75,20 @@ public class SoundCloudTrack
     public string? TagList { get; set; }
 
     [JsonPropertyName("favoritings_count")]
-    public int FavoritingsCount { get; set; }
+    public int? FavoritingsCount { get; set; }
 
     [JsonPropertyName("playback_count")]
-    public int PlaybackCount { get; set; }
+    public int? PlaybackCount { get; set; }
 
     [JsonPropertyName("created_at")]
+    [JsonConverter(typeof(SoundCloudDateTimeConverter))]
     public DateTime CreatedAt { get; set; }
 
     [JsonPropertyName("permalink_url")]
     public string? PermalinkUrl { get; set; }
 
     [JsonPropertyName("duration")]
-    public int Duration { get; set; }
+    public int? Duration { get; set; }
 
     [JsonPropertyName("access")]
     public string? Access { get; set; }
