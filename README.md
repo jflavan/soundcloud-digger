@@ -1,10 +1,13 @@
 # SoundCloud Digger
 
-A web app that gives you a better view of your SoundCloud feed. Sort by likes, filter by genre, and discover the best tracks from the artists you follow.
+A web app that gives you a better view of your SoundCloud feed. Sort by likes, plays, reposts, and more. Filter by genre, and discover the best tracks from the artists you follow.
 
 ## Features
 
 - **Sort by likes** — surface the most popular tracks in your feed
+- **Sort by plays** — find the most listened-to tracks
+- **Sort by reposts** — see what's being shared the most
+- **Sort by comments** — find tracks generating the most discussion
 - **Sort by date** — see the latest tracks first
 - **Time range filter** — view tracks from the last 24h, 7 days, 30 days, or all time
 - **Genre filter** — multi-select dropdown to filter by genre tags
@@ -68,11 +71,11 @@ The Vite dev server proxies `/api` and `/auth` requests to the backend automatic
 ## Running tests
 
 ```bash
-# Backend (30 tests)
+# Backend (29 tests)
 cd backend
 dotnet test
 
-# Frontend (10 tests)
+# Frontend (13 tests)
 cd frontend
 npx vitest run
 ```
