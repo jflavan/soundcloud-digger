@@ -11,6 +11,7 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 - **Sort by date** — see the latest tracks first
 - **Time range filter** — view tracks from the last 24h, 7 days, 30 days, or all time
 - **Genre filter** — multi-select dropdown to filter by genre tags
+- **Duration filter** — dual-thumb range slider to filter tracks by length (0–60 min)
 - **Auto-refresh** — feed updates in the background every 5 minutes
 
 ## Architecture
@@ -77,7 +78,7 @@ The Vite dev server proxies `/api` and `/auth` requests to the backend (port 503
 cd backend
 dotnet test
 
-# Frontend (13 tests)
+# Frontend (17 tests)
 cd frontend
 npx vitest run
 ```
@@ -96,7 +97,7 @@ backend/
 frontend/
   src/
     lib/
-      components/      # TrackRow, TrackList, ControlsBar, LoadingIndicator
+      components/      # TrackRow, TrackList, ControlsBar, DurationRangeSlider, LoadingIndicator
       stores/          # feedStore, filterStore, filteredFeedStore (derived)
       api.ts           # API client
       types.ts         # TypeScript types
