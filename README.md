@@ -24,13 +24,15 @@ The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org/) (v20+)
-- A [SoundCloud developer app](https://soundcloud.com/you/apps) with redirect URI set to `http://localhost:5000/auth/callback`
+- A [SoundCloud developer app](https://soundcloud.com/you/apps) with redirect URI set to `http://localhost:5032/auth/callback`
 
 ## Setup
 
 ### 1. Configure SoundCloud credentials
 
-Store your app credentials using .NET user secrets (keeps them out of source control):
+Store your app credentials using .NET user secrets (keeps them out of source control).
+
+Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/you/apps) to `http://localhost:5032/auth/callback`.
 
 ```bash
 cd backend/src/SoundCloudDigger.Api
@@ -55,9 +57,9 @@ npm install
 Start both services in separate terminals:
 
 ```bash
-# Terminal 1 — Backend (port 5000)
-cd backend/src/SoundCloudDigger.Api
-dotnet run --urls "http://localhost:5000"
+# Terminal 1 — Backend (port 5032)
+cd backend
+dotnet run --project src/SoundCloudDigger.Api
 
 # Terminal 2 — Frontend (port 5173)
 cd frontend
@@ -66,7 +68,7 @@ npm run dev
 
 Open `http://localhost:5173` and click "Log in with SoundCloud."
 
-The Vite dev server proxies `/api` and `/auth` requests to the backend automatically.
+The Vite dev server proxies `/api` and `/auth` requests to the backend (port 5032) automatically.
 
 ## Running tests
 
