@@ -31,7 +31,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Mid', likesCount: 100 }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', 'all', []);
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null);
 		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
 	});
 
@@ -42,7 +42,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Mid', playbackCount: 1000 }),
 		];
 
-		const result = filterAndSort(tracks, 'plays', 'all', []);
+		const result = filterAndSort(tracks, 'plays', 'all', [], null, null);
 		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
 	});
 
@@ -53,7 +53,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Mid', repostsCount: 50 }),
 		];
 
-		const result = filterAndSort(tracks, 'reposts', 'all', []);
+		const result = filterAndSort(tracks, 'reposts', 'all', [], null, null);
 		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
 	});
 
@@ -64,7 +64,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Mid', commentCount: 10 }),
 		];
 
-		const result = filterAndSort(tracks, 'comments', 'all', []);
+		const result = filterAndSort(tracks, 'comments', 'all', [], null, null);
 		expect(result.map((t) => t.title)).toEqual(['High', 'Mid', 'Low']);
 	});
 
@@ -75,7 +75,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Mid', createdAt: '2026-02-01T00:00:00Z' }),
 		];
 
-		const result = filterAndSort(tracks, 'date', 'all', []);
+		const result = filterAndSort(tracks, 'date', 'all', [], null, null);
 		expect(result.map((t) => t.title)).toEqual(['New', 'Mid', 'Old']);
 	});
 
@@ -89,7 +89,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Old', appearedAt: twoDaysAgo.toISOString() }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', '24h', []);
+		const result = filterAndSort(tracks, 'likes', '24h', [], null, null);
 		expect(result).toHaveLength(1);
 		expect(result[0].title).toBe('Recent');
 	});
@@ -104,7 +104,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'Old', appearedAt: tenDaysAgo.toISOString() }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', '7d', []);
+		const result = filterAndSort(tracks, 'likes', '7d', [], null, null);
 		expect(result).toHaveLength(1);
 		expect(result[0].title).toBe('Recent');
 	});
@@ -116,7 +116,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'C', genre: 'Electronic' }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', 'all', ['Electronic']);
+		const result = filterAndSort(tracks, 'likes', 'all', ['Electronic'], null, null);
 		expect(result).toHaveLength(2);
 		expect(result.every((t) => t.genre === 'Electronic')).toBe(true);
 	});
@@ -128,7 +128,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'C', genre: 'Ambient' }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', 'all', ['Electronic', 'Ambient']);
+		const result = filterAndSort(tracks, 'likes', 'all', ['Electronic', 'Ambient'], null, null);
 		expect(result).toHaveLength(2);
 	});
 
@@ -138,7 +138,7 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'B', genre: 'Hip-hop' }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', 'all', []);
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null);
 		expect(result).toHaveLength(2);
 	});
 
@@ -153,8 +153,52 @@ describe('filterAndSort', () => {
 			makeTrack({ title: 'C', genre: 'Electronic', appearedAt: old.toISOString() }),
 		];
 
-		const result = filterAndSort(tracks, 'likes', '24h', ['Electronic']);
+		const result = filterAndSort(tracks, 'likes', '24h', ['Electronic'], null, null);
 		expect(result).toHaveLength(1);
 		expect(result[0].title).toBe('A');
+	});
+
+	it('filters by minimum duration', () => {
+		const tracks = [
+			makeTrack({ title: 'Short', duration: 60_000 }),
+			makeTrack({ title: 'Long', duration: 300_000 }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], 120_000, null);
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('Long');
+	});
+
+	it('filters by maximum duration', () => {
+		const tracks = [
+			makeTrack({ title: 'Short', duration: 60_000 }),
+			makeTrack({ title: 'Long', duration: 300_000 }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, 120_000);
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('Short');
+	});
+
+	it('filters by duration range', () => {
+		const tracks = [
+			makeTrack({ title: 'Short', duration: 30_000 }),
+			makeTrack({ title: 'Mid', duration: 180_000 }),
+			makeTrack({ title: 'Long', duration: 600_000 }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], 60_000, 300_000);
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('Mid');
+	});
+
+	it('null duration bounds apply no filter', () => {
+		const tracks = [
+			makeTrack({ title: 'A', duration: 30_000 }),
+			makeTrack({ title: 'B', duration: 600_000 }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null);
+		expect(result).toHaveLength(2);
 	});
 });

@@ -2,6 +2,7 @@
 	import type { SortBy, TimeRange } from '$lib/types';
 	import { sortBy, timeRange, selectedGenres } from '$lib/stores/filterStore';
 	import { availableGenres } from '$lib/stores/filteredFeedStore';
+	import DurationRangeSlider from './DurationRangeSlider.svelte';
 
 	let dropdownOpen = $state(false);
 
@@ -55,6 +56,10 @@
 				{opt.label}
 			</button>
 		{/each}
+	</div>
+
+	<div class="control-group">
+		<DurationRangeSlider />
 	</div>
 
 	{#if $availableGenres.length > 0}

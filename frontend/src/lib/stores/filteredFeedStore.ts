@@ -1,6 +1,6 @@
 import { derived } from 'svelte/store';
 import { feedTracks } from './feedStore';
-import { sortBy, timeRange, selectedGenres } from './filterStore';
+import { sortBy, timeRange, selectedGenres, durationMin, durationMax } from './filterStore';
 import type { FeedTrack, SortBy, TimeRange } from '$lib/types';
 
 const TIME_RANGE_MS: Record<TimeRange, number> = {
@@ -14,7 +14,9 @@ export function filterAndSort(
 	tracks: FeedTrack[],
 	sort: SortBy,
 	range: TimeRange,
-	genres: string[]
+	genres: string[],
+	durMin: number | null,
+	durMax: number | null
 ): FeedTrack[] {
 	const now = Date.now();
 	const cutoff = TIME_RANGE_MS[range];
@@ -27,6 +29,14 @@ export function filterAndSort(
 
 	if (genres.length > 0) {
 		filtered = filtered.filter((t) => t.genre !== null && genres.includes(t.genre));
+	}
+
+	if (durMin !== null) {
+		filtered = filtered.filter((t) => t.duration >= durMin);
+	}
+
+	if (durMax !== null) {
+		filtered = filtered.filter((t) => t.duration <= durMax);
 	}
 
 	const sorted = [...filtered];
@@ -46,8 +56,9 @@ export function filterAndSort(
 }
 
 export const filteredFeed = derived(
-	[feedTracks, sortBy, timeRange, selectedGenres],
-	([$tracks, $sortBy, $timeRange, $genres]) => filterAndSort($tracks, $sortBy, $timeRange, $genres)
+	[feedTracks, sortBy, timeRange, selectedGenres, durationMin, durationMax],
+	([$tracks, $sortBy, $timeRange, $genres, $durMin, $durMax]) =>
+		filterAndSort($tracks, $sortBy, $timeRange, $genres, $durMin, $durMax)
 );
 
 export const availableGenres = derived(feedTracks, ($tracks) => {
