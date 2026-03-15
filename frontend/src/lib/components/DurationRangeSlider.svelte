@@ -11,6 +11,11 @@
 	let dragging = $state<'low' | 'high' | null>(null);
 	let trackEl: HTMLDivElement | undefined = $state();
 
+	let editingLow = $state(false);
+	let editingHigh = $state(false);
+	let editLowValue = $state('');
+	let editHighValue = $state('');
+
 	function toPercent(value: number): number {
 		return ((value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
 	}
@@ -27,10 +32,91 @@
 		return `${minutes}:${String(seconds).padStart(2, '0')}`;
 	}
 
+	function parseDuration(text: string): number | null {
+		const trimmed = text.trim();
+		if (!trimmed) return null;
+
+		const parts = trimmed.split(':');
+		if (parts.length === 1) {
+			// Treat as minutes
+			const minutes = parseInt(parts[0], 10);
+			if (isNaN(minutes)) return null;
+			return minutes * 60_000;
+		}
+		if (parts.length === 2) {
+			const minutes = parseInt(parts[0] || '0', 10);
+			const seconds = parseInt(parts[1] || '0', 10);
+			if (isNaN(minutes) || isNaN(seconds)) return null;
+			return (minutes * 60 + seconds) * 1000;
+		}
+		return null;
+	}
+
+	function filterInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		// Allow only digits and at most one colon
+		let value = input.value.replace(/[^0-9:]/g, '');
+		const colonCount = (value.match(/:/g) || []).length;
+		if (colonCount > 1) {
+			// Keep only the first colon
+			const firstColon = value.indexOf(':');
+			value = value.slice(0, firstColon + 1) + value.slice(firstColon + 1).replace(/:/g, '');
+		}
+		input.value = value;
+	}
+
+	function startEditLow() {
+		editLowValue = formatDuration(low);
+		editingLow = true;
+	}
+
+	function startEditHigh() {
+		editHighValue = high === SLIDER_MAX ? '60:00' : formatDuration(high);
+		editingHigh = true;
+	}
+
+	function commitLow() {
+		if (!editingLow) return;
+		editingLow = false;
+		const parsed = parseDuration(editLowValue);
+		if (parsed === null) return;
+		const clamped = clampToStep(Math.min(parsed, high - STEP));
+		low = Math.max(SLIDER_MIN, clamped);
+		updateStore();
+	}
+
+	function commitHigh() {
+		if (!editingHigh) return;
+		editingHigh = false;
+		const parsed = parseDuration(editHighValue);
+		if (parsed === null) return;
+		const clamped = clampToStep(Math.max(parsed, low + STEP));
+		high = Math.min(SLIDER_MAX, clamped);
+		updateStore();
+	}
+
+	function onInputKeydown(e: KeyboardEvent, commit: () => void, cancel: () => void) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commit();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			cancel();
+		}
+	}
+
 	function updateStore() {
 		durationMin.set(low === SLIDER_MIN ? null : low);
 		durationMax.set(high === SLIDER_MAX ? null : high);
 	}
+
+	function resetDuration() {
+		low = SLIDER_MIN;
+		high = SLIDER_MAX;
+		updateStore();
+	}
+
+	let isFiltered = $derived(low !== SLIDER_MIN || high !== SLIDER_MAX);
 
 	function valueFromPointer(clientX: number): number {
 		if (!trackEl) return 0;
@@ -78,7 +164,21 @@
 
 <div class="duration-slider">
 	<span class="label">Duration:</span>
-	<span class="range-label range-label-low">{lowLabel}</span>
+
+	{#if editingLow}
+		<input
+			class="range-input range-input-low"
+			type="text"
+			bind:value={editLowValue}
+			oninput={filterInput}
+			onblur={commitLow}
+			onkeydown={(e) => onInputKeydown(e, commitLow, () => (editingLow = false))}
+			autofocus
+		/>
+	{:else}
+		<button class="range-label range-label-low" onclick={startEditLow}>{lowLabel}</button>
+	{/if}
+
 	<div class="range-track" bind:this={trackEl}>
 		<div
 			class="range-fill"
@@ -107,7 +207,26 @@
 			onpointerdown={(e) => onPointerDown(e, 'high')}
 		></div>
 	</div>
-	<span class="range-label range-label-high">{highLabel}</span>
+
+	{#if editingHigh}
+		<input
+			class="range-input range-input-high"
+			type="text"
+			bind:value={editHighValue}
+			oninput={filterInput}
+			onblur={commitHigh}
+			onkeydown={(e) => onInputKeydown(e, commitHigh, () => (editingHigh = false))}
+			autofocus
+		/>
+	{:else}
+		<button class="range-label range-label-high" onclick={startEditHigh}>{highLabel}</button>
+	{/if}
+
+	{#if isFiltered}
+		<button class="reset-btn" onclick={resetDuration} title="Reset duration filter">
+			Reset
+		</button>
+	{/if}
 </div>
 
 <style>
@@ -122,9 +241,19 @@
 		margin-right: 4px;
 	}
 	.range-label {
+		background: transparent;
+		border: none;
 		color: #ccc;
 		font-size: 12px;
 		user-select: none;
+		cursor: pointer;
+		padding: 2px 4px;
+		border-radius: 3px;
+		font-family: inherit;
+	}
+	.range-label:hover {
+		background: #333;
+		color: #fff;
 	}
 	.range-label-low {
 		text-align: right;
@@ -133,6 +262,23 @@
 	.range-label-high {
 		text-align: left;
 		min-width: 42px;
+	}
+	.range-input {
+		background: #222;
+		border: 1px solid #f50;
+		color: #fff;
+		font-size: 12px;
+		font-family: inherit;
+		padding: 1px 4px;
+		border-radius: 3px;
+		outline: none;
+		text-align: center;
+	}
+	.range-input-low {
+		width: 36px;
+	}
+	.range-input-high {
+		width: 44px;
 	}
 	.range-track {
 		position: relative;
@@ -164,5 +310,17 @@
 	}
 	.thumb:active {
 		cursor: grabbing;
+	}
+	.reset-btn {
+		background: transparent;
+		border: none;
+		color: #666;
+		padding: 4px 10px;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 13px;
+	}
+	.reset-btn:hover {
+		color: #ccc;
 	}
 </style>
