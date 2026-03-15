@@ -21,18 +21,34 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and caches it in memory. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness.
 
+## Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js](https://nodejs.org/) (v20+)
+
 ## Quick Start
+
+**macOS / Linux:**
 
 ```bash
 ./start.sh
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+.\start.ps1
+```
+
+**Windows (WSL / Git Bash):**
+
+```bash
+./start.sh
+```
+
+> `start.sh` is a Bash script, so on Windows it requires a Bash-compatible terminal such as [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or [Git Bash](https://git-scm.com/downloads). For native Windows use, run `start.ps1` in PowerShell instead.
+
 Open `http://localhost:5173` — the setup wizard will walk you through registering a SoundCloud app and entering your credentials. That's it.
-
-## Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js](https://nodejs.org/) (v20+)
 
 ## Setup (manual)
 
@@ -59,8 +75,12 @@ Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/y
 ### 2. Run
 
 ```bash
-./start.sh
+./start.sh          # macOS / Linux / WSL / Git Bash
 # or: make dev
+```
+
+```powershell
+.\start.ps1         # Windows (PowerShell)
 ```
 
 Or start each service manually:
