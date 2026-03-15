@@ -21,19 +21,32 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and caches it in memory. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness.
 
+## Quick Start
+
+```bash
+./start.sh
+```
+
+Open `http://localhost:5173` — the setup wizard will walk you through registering a SoundCloud app and entering your credentials. That's it.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org/) (v20+)
-- A [SoundCloud developer app](https://soundcloud.com/you/apps) with redirect URI set to `http://localhost:5032/auth/callback`
 
-## Setup
+## Setup (manual)
+
+If you prefer to set things up manually instead of using the setup wizard:
 
 ### 1. Configure SoundCloud credentials
 
-Store your app credentials using .NET user secrets (keeps them out of source control).
+Copy the example env file and fill in your credentials:
 
-Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/you/apps) to `http://localhost:5032/auth/callback`.
+```bash
+cp backend/src/SoundCloudDigger.Api/.env.example backend/src/SoundCloudDigger.Api/.env
+```
+
+Or use .NET user secrets:
 
 ```bash
 cd backend/src/SoundCloudDigger.Api
@@ -41,30 +54,23 @@ dotnet user-secrets set "SoundCloud:ClientId" "YOUR_CLIENT_ID"
 dotnet user-secrets set "SoundCloud:ClientSecret" "YOUR_CLIENT_SECRET"
 ```
 
-### 2. Install dependencies
+Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/you/apps) to `http://localhost:5032/auth/callback`.
+
+### 2. Run
 
 ```bash
-# Backend
-cd backend
-dotnet restore
-
-# Frontend
-cd frontend
-npm install
+./start.sh
+# or: make dev
 ```
 
-### 3. Run
-
-Start both services in separate terminals:
+Or start each service manually:
 
 ```bash
 # Terminal 1 — Backend (port 5032)
-cd backend
-dotnet run --project src/SoundCloudDigger.Api
+cd backend && dotnet run --project src/SoundCloudDigger.Api
 
 # Terminal 2 — Frontend (port 5173)
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 
 Open `http://localhost:5173` and click "Log in with SoundCloud."

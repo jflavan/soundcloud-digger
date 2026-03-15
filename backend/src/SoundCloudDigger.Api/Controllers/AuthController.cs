@@ -30,6 +30,10 @@ public class AuthController : Controller
     [HttpGet("/auth/login")]
     public IActionResult Login()
     {
+        var clientId = _config["SoundCloud:ClientId"];
+        if (string.IsNullOrEmpty(clientId))
+            return BadRequest(new { error = "not_configured" });
+
         var verifier = PkceHelper.GenerateCodeVerifier();
         var challenge = PkceHelper.GenerateCodeChallenge(verifier);
         var state = Guid.NewGuid().ToString("N");
@@ -37,7 +41,6 @@ public class AuthController : Controller
         HttpContext.Session.SetString("pkce_verifier", verifier);
         HttpContext.Session.SetString("oauth_state", state);
 
-        var clientId = _config["SoundCloud:ClientId"];
         var redirectUri = _config["SoundCloud:RedirectUri"];
         var url = $"https://secure.soundcloud.com/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri!)}&response_type=code&code_challenge={challenge}&code_challenge_method=S256&state={state}";
 

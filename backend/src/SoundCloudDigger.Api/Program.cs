@@ -1,4 +1,7 @@
+using SoundCloudDigger.Api;
 using SoundCloudDigger.Api.Services;
+
+EnvFileLoader.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
