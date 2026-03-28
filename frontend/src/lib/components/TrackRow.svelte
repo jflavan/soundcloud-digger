@@ -1,7 +1,11 @@
 <script lang="ts">
 	import type { FeedTrack } from '$lib/types';
 
-	let { track }: { track: FeedTrack } = $props();
+	let { track, selected = false, onselect }: {
+		track: FeedTrack;
+		selected?: boolean;
+		onselect?: () => void;
+	} = $props();
 
 	function formatDuration(ms: number): string {
 		const minutes = Math.floor(ms / 60000);
@@ -13,6 +17,13 @@
 		if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
 		return count.toString();
 	}
+
+	function handleClick(e: MouseEvent) {
+		if (onselect) {
+			e.preventDefault();
+			onselect();
+		}
+	}
 </script>
 
 <a
@@ -20,6 +31,8 @@
 	target="_blank"
 	rel="noopener noreferrer"
 	class="track-row"
+	class:selected
+	onclick={handleClick}
 >
 	<img
 		src={track.artworkUrl ?? '/placeholder.png'}
@@ -51,9 +64,14 @@
 		background: #1a1a1a;
 		text-decoration: none;
 		color: inherit;
+		cursor: pointer;
 	}
 	.track-row:hover {
 		background: #222;
+	}
+	.track-row.selected {
+		background: #222;
+		border-radius: 6px 6px 0 0;
 	}
 	.artwork {
 		border-radius: 4px;
