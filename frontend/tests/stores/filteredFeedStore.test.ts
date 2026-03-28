@@ -201,4 +201,50 @@ describe('filterAndSort', () => {
 		const result = filterAndSort(tracks, 'likes', 'all', [], null, null);
 		expect(result).toHaveLength(2);
 	});
+
+	it('filters by createdAt when timeField is uploaded', () => {
+		const now = new Date();
+		const recentCreated = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+		const oldCreated = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+		const tracks = [
+			makeTrack({
+				title: 'RecentUpload',
+				createdAt: recentCreated.toISOString(),
+				appearedAt: now.toISOString(),
+			}),
+			makeTrack({
+				title: 'OldUpload',
+				createdAt: oldCreated.toISOString(),
+				appearedAt: now.toISOString(),
+			}),
+		];
+
+		const result = filterAndSort(tracks, 'likes', '24h', [], null, null, 'uploaded');
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('RecentUpload');
+	});
+
+	it('filters by appearedAt when timeField is feed (default)', () => {
+		const now = new Date();
+		const recentAppeared = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+		const oldAppeared = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+		const tracks = [
+			makeTrack({
+				title: 'RecentFeed',
+				appearedAt: recentAppeared.toISOString(),
+				createdAt: new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString(),
+			}),
+			makeTrack({
+				title: 'OldFeed',
+				appearedAt: oldAppeared.toISOString(),
+				createdAt: now.toISOString(),
+			}),
+		];
+
+		const result = filterAndSort(tracks, 'likes', '24h', [], null, null, 'feed');
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('RecentFeed');
+	});
 });
