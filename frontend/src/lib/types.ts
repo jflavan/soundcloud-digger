@@ -24,3 +24,4 @@ export interface FeedResponse {
 
 export type SortBy = 'likes' | 'date' | 'plays' | 'reposts' | 'comments';
 export type TimeRange = '24h' | '7d' | '30d' | 'all';
+export type TimeField = 'feed' | 'uploaded';

@@ -6,9 +6,34 @@
 	import ControlsBar from '$lib/components/ControlsBar.svelte';
 	import TrackList from '$lib/components/TrackList.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
+	import BottomPlayer from '$lib/components/BottomPlayer.svelte';
+	import type { FeedTrack } from '$lib/types';
 
 	let error = $state('');
 	let intervalId: ReturnType<typeof setInterval> | null = null;
+	let selectedUrl = $state<string | null>(null);
+
+	const selectedTrack = $derived(
+		selectedUrl ? $filteredFeed.find((t) => t.permalinkUrl === selectedUrl) ?? null : null
+	);
+
+	function selectTrack(url: string | null) {
+		if (!url) return;
+		selectedUrl = selectedUrl === url ? null : url;
+	}
+
+	function cycleTrack(direction: number) {
+		const tracks = $filteredFeed;
+		if (tracks.length === 0) return;
+		const currentIndex = tracks.findIndex((t) => t.permalinkUrl === selectedUrl);
+		let nextIndex: number;
+		if (currentIndex === -1) {
+			nextIndex = 0;
+		} else {
+			nextIndex = (currentIndex + direction + tracks.length) % tracks.length;
+		}
+		selectedUrl = tracks[nextIndex].permalinkUrl;
+	}
 
 	async function pollFeed() {
 		try {
@@ -62,7 +87,7 @@
 	});
 </script>
 
-<div class="feed-page">
+<div class="feed-page" class:has-player={selectedTrack !== null}>
 	<div class="header">
 		<h1>SoundCloud Digger</h1>
 		<button class="logout" onclick={handleLogout}>Logout</button>
@@ -79,8 +104,17 @@
 		<LoadingIndicator totalCount={$totalCount} />
 	{/if}
 
-	<TrackList tracks={$filteredFeed} />
+	<TrackList tracks={$filteredFeed} {selectedUrl} onselect={selectTrack} />
 </div>
+
+{#if selectedTrack}
+	<BottomPlayer
+		track={selectedTrack}
+		onprev={() => cycleTrack(-1)}
+		onnext={() => cycleTrack(1)}
+		onclose={() => (selectedUrl = null)}
+	/>
+{/if}
 
 <style>
 	.feed-page {
@@ -90,6 +124,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+	.feed-page.has-player {
+		padding-bottom: 90px;
 	}
 	.header {
 		display: flex;
