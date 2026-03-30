@@ -43,6 +43,15 @@ export function filterAndSort(
 		filtered = filtered.filter((t) => t.duration <= durMax);
 	}
 
+	// Deduplicate by permalinkUrl (same track can appear multiple times in feed)
+	const seen = new Set<string>();
+	filtered = filtered.filter((t) => {
+		const key = t.permalinkUrl ?? `${t.title}-${t.artistName}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+
 	const sorted = [...filtered];
 	if (sort === 'likes') {
 		sorted.sort((a, b) => b.likesCount - a.likesCount);

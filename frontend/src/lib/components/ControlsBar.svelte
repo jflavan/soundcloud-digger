@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { SortBy, TimeRange } from '$lib/types';
-	import { sortBy, timeRange, selectedGenres } from '$lib/stores/filterStore';
+	import type { SortBy, TimeRange, TimeField } from '$lib/types';
+	import { sortBy, timeRange, selectedGenres, timeField } from '$lib/stores/filterStore';
 	import { availableGenres } from '$lib/stores/filteredFeedStore';
 	import DurationRangeSlider from './DurationRangeSlider.svelte';
 
@@ -56,6 +56,21 @@
 				{opt.label}
 			</button>
 		{/each}
+		<span class="separator"></span>
+		<button
+			class="toggle"
+			class:active={$timeField === 'feed'}
+			onclick={() => timeField.set('feed')}
+		>
+			In feed
+		</button>
+		<button
+			class="toggle"
+			class:active={$timeField === 'uploaded'}
+			onclick={() => timeField.set('uploaded')}
+		>
+			Uploaded
+		</button>
 	</div>
 
 	<div class="control-group">
@@ -122,6 +137,12 @@
 	.toggle.active {
 		background: #f50;
 		color: white;
+	}
+	.separator {
+		width: 1px;
+		height: 16px;
+		background: #333;
+		margin: 0 4px;
 	}
 	.genre-group {
 		position: relative;

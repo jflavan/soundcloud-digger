@@ -70,8 +70,9 @@
 		background: #222;
 	}
 	.track-row.selected {
-		background: #222;
-		border-radius: 6px 6px 0 0;
+		background: #252525;
+		outline: 1px solid #f50;
+		outline-offset: -1px;
 	}
 	.artwork {
 		border-radius: 4px;
