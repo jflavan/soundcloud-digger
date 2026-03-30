@@ -11,6 +11,47 @@
 	const embedUrl = $derived(
 		`https://w.soundcloud.com/player/?url=${encodeURIComponent(track.permalinkUrl ?? '')}&color=%23ff5500&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`
 	);
+
+	let iframeEl = $state<HTMLIFrameElement | null>(null);
+	let finishBound = $state(false);
+
+	let apiPromise: Promise<void> | null = null;
+	function loadWidgetApi(): Promise<void> {
+		if ((window as any).SC?.Widget) return Promise.resolve();
+		if (apiPromise) return apiPromise;
+		apiPromise = new Promise((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = 'https://w.soundcloud.com/player/api.js';
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('Failed to load SC Widget API'));
+			document.head.appendChild(script);
+		});
+		return apiPromise;
+	}
+
+	function bindFinishEvent(iframe: HTMLIFrameElement) {
+		if (finishBound) return;
+		const SC = (window as any).SC;
+		if (!SC?.Widget) return;
+		const widget = SC.Widget(iframe);
+		widget.bind(SC.Widget.Events.FINISH, () => {
+			onnext();
+		});
+		finishBound = true;
+	}
+
+	$effect(() => {
+		const iframe = iframeEl;
+		if (!iframe) return;
+		finishBound = false;
+
+		loadWidgetApi().then(() => {
+			iframe.addEventListener('load', () => bindFinishEvent(iframe), { once: true });
+			if (iframe.contentWindow) {
+				bindFinishEvent(iframe);
+			}
+		}).catch((err) => console.warn('SC Widget API unavailable, autoplay-next disabled:', err));
+	});
 </script>
 
 <div class="player-bar">
@@ -46,6 +87,7 @@
 		<div class="embed-section">
 			{#key track.permalinkUrl}
 				<iframe
+					bind:this={iframeEl}
 					title="SoundCloud Player"
 					width="100%"
 					height="20"

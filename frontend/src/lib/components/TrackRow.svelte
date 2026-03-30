@@ -32,6 +32,7 @@
 	rel="noopener noreferrer"
 	class="track-row"
 	class:selected
+	data-track-url={track.permalinkUrl}
 	onclick={handleClick}
 >
 	<img

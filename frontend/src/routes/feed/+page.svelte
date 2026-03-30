@@ -7,7 +7,6 @@
 	import TrackList from '$lib/components/TrackList.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
 	import BottomPlayer from '$lib/components/BottomPlayer.svelte';
-	import type { FeedTrack } from '$lib/types';
 
 	let error = $state('');
 	let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -23,7 +22,7 @@
 	}
 
 	function cycleTrack(direction: number) {
-		const tracks = $filteredFeed;
+		const tracks = $filteredFeed.filter((t) => t.permalinkUrl != null);
 		if (tracks.length === 0) return;
 		const currentIndex = tracks.findIndex((t) => t.permalinkUrl === selectedUrl);
 		let nextIndex: number;
@@ -107,6 +106,32 @@
 	<TrackList tracks={$filteredFeed} {selectedUrl} onselect={selectTrack} />
 </div>
 
+<div class="fab-group" class:has-player={selectedTrack !== null}>
+	{#if selectedTrack}
+		<button
+			class="fab"
+			title="Scroll to current track"
+			onclick={() => {
+				const el = document.querySelector(`[data-track-url="${CSS.escape(selectedUrl ?? '')}"]`);
+				el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}}
+		>
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+				<path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
+			</svg>
+		</button>
+	{/if}
+	<button
+		class="fab"
+		title="Scroll to top"
+		onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+	>
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+			<path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/>
+		</svg>
+	</button>
+</div>
+
 {#if selectedTrack}
 	<BottomPlayer
 		track={selectedTrack}
@@ -150,5 +175,37 @@
 		text-align: center;
 		color: #f50;
 		padding: 16px;
+	}
+	.fab-group {
+		position: fixed;
+		bottom: 20px;
+		right: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		z-index: 99;
+	}
+	.fab-group.has-player {
+		bottom: 90px;
+	}
+	.fab {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		border: 1px solid #333;
+		background: rgba(30, 30, 30, 0.9);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		color: #999;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: color 0.15s, border-color 0.15s, background 0.15s;
+	}
+	.fab:hover {
+		color: #f50;
+		border-color: #f50;
+		background: rgba(255, 85, 0, 0.08);
 	}
 </style>
