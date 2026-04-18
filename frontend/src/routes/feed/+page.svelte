@@ -26,6 +26,13 @@
 		selectedUrl = selectedUrl === url ? null : url;
 	}
 
+	function closePlayer() {
+		selectedUrl = null;
+		shuffleEnabled = false;
+		shuffleQueue = [];
+		shuffleIndex = -1;
+	}
+
 	function toggleShuffle() {
 		if (shuffleEnabled) {
 			shuffleEnabled = false;
@@ -238,7 +245,7 @@
 		onprev={() => cycleTrack(-1)}
 		onnext={() => cycleTrack(1)}
 		ontoggleShuffle={toggleShuffle}
-		onclose={() => (selectedUrl = null)}
+		onclose={closePlayer}
 	/>
 {/if}
 
