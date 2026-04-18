@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { durationMin, durationMax } from '$lib/stores/filterStore';
-
-	const STEP = 30_000; // 30 seconds
-	const SLIDER_MIN = 0;
-	const SLIDER_MAX = 60 * 60_000; // 60 minutes
-	const TRACK_SELECTOR = '.range-track';
+	import {
+		DURATION_STEP_MS as STEP,
+		DURATION_SLIDER_MIN as SLIDER_MIN,
+		DURATION_SLIDER_MAX as SLIDER_MAX,
+		formatDuration,
+		parseDuration,
+		clampToStep,
+		toPercent,
+		sanitizeDurationInput,
+	} from '$lib/utils/duration';
 
 	let low = $state(SLIDER_MIN);
 	let high = $state(SLIDER_MAX);
@@ -16,53 +21,9 @@
 	let editLowValue = $state('');
 	let editHighValue = $state('');
 
-	function toPercent(value: number): number {
-		return ((value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
-	}
-
-	function clampToStep(value: number): number {
-		const clamped = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, value));
-		return Math.round(clamped / STEP) * STEP;
-	}
-
-	function formatDuration(ms: number): string {
-		const totalSeconds = Math.floor(ms / 1000);
-		const minutes = Math.floor(totalSeconds / 60);
-		const seconds = totalSeconds % 60;
-		return `${minutes}:${String(seconds).padStart(2, '0')}`;
-	}
-
-	function parseDuration(text: string): number | null {
-		const trimmed = text.trim();
-		if (!trimmed) return null;
-
-		const parts = trimmed.split(':');
-		if (parts.length === 1) {
-			// Treat as minutes
-			const minutes = parseInt(parts[0], 10);
-			if (isNaN(minutes)) return null;
-			return minutes * 60_000;
-		}
-		if (parts.length === 2) {
-			const minutes = parseInt(parts[0] || '0', 10);
-			const seconds = parseInt(parts[1] || '0', 10);
-			if (isNaN(minutes) || isNaN(seconds)) return null;
-			return (minutes * 60 + seconds) * 1000;
-		}
-		return null;
-	}
-
 	function filterInput(e: Event) {
 		const input = e.target as HTMLInputElement;
-		// Allow only digits and at most one colon
-		let value = input.value.replace(/[^0-9:]/g, '');
-		const colonCount = (value.match(/:/g) || []).length;
-		if (colonCount > 1) {
-			// Keep only the first colon
-			const firstColon = value.indexOf(':');
-			value = value.slice(0, firstColon + 1) + value.slice(firstColon + 1).replace(/:/g, '');
-		}
-		input.value = value;
+		input.value = sanitizeDurationInput(input.value);
 	}
 
 	function startEditLow() {

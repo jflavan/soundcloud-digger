@@ -7,6 +7,18 @@ export default defineConfig({
 	test: {
 		include: ['tests/**/*.test.ts'],
 		environment: 'jsdom',
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'html'],
+			include: ['src/lib/**/*.{ts,svelte}'],
+			exclude: ['src/lib/types.ts', 'src/lib/api.ts'],
+			thresholds: {
+				lines: 80,
+				statements: 80,
+				functions: 80,
+				branches: 80,
+			},
+		},
 	},
 	server: {
 		host: 'localhost',

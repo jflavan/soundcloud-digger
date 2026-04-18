@@ -21,6 +21,10 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 - **Shuffle mode** — random playback with no repeats until the queue is exhausted, then reshuffles; prev steps back through shuffle history
   - Shuffle toggle in the player while playing, and as a FAB when no track is active (clicking it starts a random track)
 - **Click-through to SoundCloud** — the artwork and title open the track page; the artist name opens the artist page (new tab)
+- **Keyboard shortcuts** (active while the player is open and focus is not on an input/button)
+  - `Space` — play / pause
+  - `←` / `→` — seek backward / forward by 10 seconds
+  - `Ctrl`/`Cmd` + `←` / `→` — previous / next track in the queue
 
 ### UI
 
@@ -121,8 +125,11 @@ dotnet test
 
 # Frontend
 cd frontend
-npx vitest run
+npm test                 # run the suite once
+npm run test:coverage    # run with coverage report (fails under 80%)
 ```
+
+The frontend coverage threshold is 80% across statements, branches, functions, and lines, enforced by `vitest --coverage`. The HTML report is written to `frontend/coverage/`.
 
 ## Project structure
 
@@ -140,6 +147,7 @@ frontend/
     lib/
       components/      # TrackRow, TrackList, ControlsBar, DurationRangeSlider, LoadingIndicator, BottomPlayer
       stores/          # feedStore, filterStore, filteredFeedStore (derived), shuffleQueue
+      utils/           # keyboardShortcuts, duration (pure helpers)
       api.ts           # API client
       types.ts         # TypeScript types
     routes/

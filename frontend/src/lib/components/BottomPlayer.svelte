@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { FeedTrack } from '$lib/types';
+	import { resolvePlayerAction, isEditableTarget } from '$lib/utils/keyboardShortcuts';
 
 	let { track, shuffle, onprev, onnext, ontoggleShuffle, onclose }: {
 		track: FeedTrack;
@@ -27,6 +28,7 @@
 
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let finishBound = $state(false);
+	let widget: any = null;
 
 	let apiPromise: Promise<void> | null = null;
 	function loadWidgetApi(): Promise<void> {
@@ -42,11 +44,11 @@
 		return apiPromise;
 	}
 
-	function bindFinishEvent(iframe: HTMLIFrameElement) {
+	function bindWidgetEvents(iframe: HTMLIFrameElement) {
 		if (finishBound) return;
 		const SC = (window as any).SC;
 		if (!SC?.Widget) return;
-		const widget = SC.Widget(iframe);
+		widget = SC.Widget(iframe);
 		widget.bind(SC.Widget.Events.FINISH, () => {
 			onnext();
 		});
@@ -57,12 +59,32 @@
 		const iframe = iframeEl;
 		if (!iframe) return;
 		finishBound = false;
+		widget = null;
 
 		loadWidgetApi().then(() => {
-			iframe.addEventListener('load', () => bindFinishEvent(iframe), { once: true });
+			iframe.addEventListener('load', () => bindWidgetEvents(iframe), { once: true });
 		}).catch((err) => console.warn('SC Widget API unavailable, autoplay-next disabled:', err));
 	});
+
+	function seekBy(deltaMs: number) {
+		if (!widget) return;
+		widget.getPosition((pos: number) => widget.seekTo(Math.max(0, pos + deltaMs)));
+	}
+
+	function handleKey(e: KeyboardEvent) {
+		const action = resolvePlayerAction(e, isEditableTarget(document.activeElement));
+		if (!action) return;
+		e.preventDefault();
+		switch (action.type) {
+			case 'toggle': widget?.toggle(); break;
+			case 'seek': seekBy(action.deltaMs); break;
+			case 'prev': onprev(); break;
+			case 'next': onnext(); break;
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKey} />
 
 <div class="player-bar">
 	<div class="accent-line"></div>
