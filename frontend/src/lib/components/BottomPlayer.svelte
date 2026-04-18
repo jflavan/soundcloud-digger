@@ -14,6 +14,17 @@
 		`https://w.soundcloud.com/player/?url=${encodeURIComponent(track.permalinkUrl ?? '')}&color=%23ff5500&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`
 	);
 
+	const artistUrl = $derived.by(() => {
+		if (!track.permalinkUrl) return null;
+		try {
+			const u = new URL(track.permalinkUrl);
+			const slug = u.pathname.split('/').filter(Boolean)[0];
+			return slug ? `${u.origin}/${slug}` : null;
+		} catch {
+			return null;
+		}
+	});
+
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
 	let finishBound = $state(false);
 
@@ -57,16 +68,54 @@
 	<div class="accent-line"></div>
 	<div class="player-inner">
 		<div class="track-section">
-			<img
-				src={track.artworkUrl ?? '/placeholder.png'}
-				alt={track.title}
-				class="artwork"
-				width="48"
-				height="48"
-			/>
+			{#if track.permalinkUrl}
+				<a
+					class="artwork-link"
+					href={track.permalinkUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					title="Open track on SoundCloud"
+				>
+					<img
+						src={track.artworkUrl ?? '/placeholder.png'}
+						alt={track.title}
+						class="artwork"
+						width="48"
+						height="48"
+					/>
+				</a>
+			{:else}
+				<img
+					src={track.artworkUrl ?? '/placeholder.png'}
+					alt={track.title}
+					class="artwork"
+					width="48"
+					height="48"
+				/>
+			{/if}
 			<div class="track-meta">
-				<span class="track-title">{track.title}</span>
-				<span class="track-artist">{track.artistName}</span>
+				{#if track.permalinkUrl}
+					<a
+						class="track-title"
+						href={track.permalinkUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						title="Open track on SoundCloud"
+					>{track.title}</a>
+				{:else}
+					<span class="track-title">{track.title}</span>
+				{/if}
+				{#if artistUrl}
+					<a
+						class="track-artist"
+						href={artistUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						title="Open artist on SoundCloud"
+					>{track.artistName}</a>
+				{:else}
+					<span class="track-artist">{track.artistName}</span>
+				{/if}
 			</div>
 		</div>
 
@@ -169,6 +218,18 @@
 		flex-shrink: 0;
 		object-fit: cover;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+		display: block;
+	}
+
+	.artwork-link {
+		display: block;
+		flex-shrink: 0;
+		line-height: 0;
+		transition: opacity 0.15s;
+	}
+
+	.artwork-link:hover {
+		opacity: 0.85;
 	}
 
 	.track-meta {
@@ -186,6 +247,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		letter-spacing: 0.01em;
+		text-decoration: none;
+	}
+
+	a.track-title:hover {
+		color: #f50;
 	}
 
 	.track-artist {
@@ -194,6 +260,11 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		text-decoration: none;
+	}
+
+	a.track-artist:hover {
+		color: #f50;
 	}
 
 	.controls-section {
