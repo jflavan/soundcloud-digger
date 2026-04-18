@@ -4,15 +4,28 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 ## Features
 
-- **Sort by likes** — surface the most popular tracks in your feed
-- **Sort by plays** — find the most listened-to tracks
-- **Sort by reposts** — see what's being shared the most
-- **Sort by comments** — find tracks generating the most discussion
-- **Sort by date** — see the latest tracks first
+### Sorting and filtering
+
+- **Sort by likes, plays, reposts, comments, or date** — surface what matters first
 - **Time range filter** — view tracks from the last 24h, 7 days, 30 days, or all time
-- **Genre filter** — multi-select dropdown to filter by genre tags
-- **Duration filter** — dual-thumb range slider to filter tracks by length (0–60 min)
-- **Auto-refresh** — feed updates in the background every 5 minutes
+- **Time field toggle** — filter the time range by when a track appeared in your feed or when it was uploaded
+- **Genre include filter** — multi-select dropdown to show only selected genres
+- **Genre exclude filter** — multi-select dropdown to hide selected genres (wins over include)
+- **Duration filter** — dual-thumb range slider with manual time entry (0–60 min)
+
+### Playback
+
+- **Inline bottom player** — click a track to open a persistent SoundCloud embed at the bottom of the page
+- **Autoplay next** — when a track finishes, the next one starts automatically
+- **Prev / next controls** — step through the current list
+- **Shuffle mode** — random playback with no repeats until the queue is exhausted, then reshuffles; prev steps back through shuffle history
+  - Shuffle toggle in the player while playing, and as a FAB when no track is active (clicking it starts a random track)
+- **Click-through to SoundCloud** — the artwork and title open the track page; the artist name opens the artist page (new tab)
+
+### UI
+
+- **Floating action buttons** — refresh the feed, scroll to the currently playing track, scroll to top, or toggle shuffle
+- **Auto-refresh** — feed updates in the background every minute
 
 ## Architecture
 
@@ -100,11 +113,11 @@ The Vite dev server proxies `/api` and `/auth` requests to the backend (port 503
 ## Running tests
 
 ```bash
-# Backend (29 tests)
+# Backend
 cd backend
 dotnet test
 
-# Frontend (17 tests)
+# Frontend
 cd frontend
 npx vitest run
 ```
@@ -123,12 +136,12 @@ backend/
 frontend/
   src/
     lib/
-      components/      # TrackRow, TrackList, ControlsBar, DurationRangeSlider, LoadingIndicator
-      stores/          # feedStore, filterStore, filteredFeedStore (derived)
+      components/      # TrackRow, TrackList, ControlsBar, DurationRangeSlider, LoadingIndicator, BottomPlayer
+      stores/          # feedStore, filterStore, filteredFeedStore (derived), shuffleQueue
       api.ts           # API client
       types.ts         # TypeScript types
     routes/
-      +page.svelte     # Login page
-      feed/+page.svelte # Feed page with polling
+      +page.svelte         # Login page
+      feed/+page.svelte    # Feed page — polling, FABs, player wiring, shuffle state
   tests/
 ```
