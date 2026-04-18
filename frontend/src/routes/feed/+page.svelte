@@ -73,6 +73,17 @@
 		selectedUrl = tracks[nextIndex].permalinkUrl;
 	}
 
+	$effect(() => {
+		if (!shuffleEnabled) return;
+		const urls = $filteredFeed
+			.map((t) => t.permalinkUrl)
+			.filter((u): u is string => u !== null);
+		const currentStillPresent = selectedUrl !== null && urls.includes(selectedUrl);
+		const next = buildShuffleQueue(urls, currentStillPresent ? selectedUrl : null);
+		shuffleQueue = next;
+		shuffleIndex = currentStillPresent ? 0 : -1;
+	});
+
 	async function pollFeed() {
 		try {
 			const data = await fetchFeed();
