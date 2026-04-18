@@ -23,8 +23,8 @@ public class AuthControllerTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["SoundCloud:ClientId"] = "test_client_id",
-                ["SoundCloud:RedirectUri"] = "http://localhost:5000/auth/callback",
-                ["FrontendUrl"] = "http://localhost:5173",
+                ["SoundCloud:RedirectUri"] = "http://scdigger.localhost:5173/auth/callback",
+                ["FrontendUrl"] = "http://scdigger.localhost:5173",
             })
             .Build();
 
@@ -58,7 +58,7 @@ public class AuthControllerTests
         _sut.HttpContext.Session.SetString("pkce_verifier", "test_verifier");
         _sut.HttpContext.Session.SetString("oauth_state", "test_state");
 
-        _mockClient.Setup(c => c.ExchangeCodeForToken("auth_code", "test_verifier", "http://localhost:5000/auth/callback"))
+        _mockClient.Setup(c => c.ExchangeCodeForToken("auth_code", "test_verifier", "http://scdigger.localhost:5173/auth/callback"))
             .ReturnsAsync(new SoundCloudTokenResponse
             {
                 AccessToken = "access_123",
@@ -69,7 +69,7 @@ public class AuthControllerTests
         var result = await _sut.Callback("auth_code", "test_state") as RedirectResult;
 
         Assert.NotNull(result);
-        Assert.Equal("http://localhost:5173/feed", result.Url);
+        Assert.Equal("http://scdigger.localhost:5173/feed", result.Url);
         _mockTokenService.Verify(t => t.Store(It.IsAny<string>(), "access_123", "refresh_456", 3600));
     }
 

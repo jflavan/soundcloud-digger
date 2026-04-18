@@ -9,8 +9,10 @@ export default defineConfig({
 		environment: 'jsdom',
 	},
 	server: {
+		host: 'localhost',
 		port: 5173,
 		strictPort: true,
+		allowedHosts: ['scdigger.localhost'],
 		proxy: {
 			'/api': 'http://localhost:5032',
 			'/auth': 'http://localhost:5032',

@@ -61,7 +61,9 @@ The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user
 
 > `start.sh` is a Bash script, so on Windows it requires a Bash-compatible terminal such as [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or [Git Bash](https://git-scm.com/downloads). For native Windows use, run `start.ps1` in PowerShell instead.
 
-Open `http://localhost:5173` — the setup wizard will walk you through registering a SoundCloud app and entering your credentials. That's it.
+Open `http://scdigger.localhost:5173` — the setup wizard will walk you through registering a SoundCloud app and entering your credentials. That's it.
+
+> The app uses `scdigger.localhost` instead of `localhost` so the OAuth session cookie is scoped correctly across the frontend and backend. The `.localhost` TLD is reserved by RFC 6761 and resolves to `127.0.0.1` automatically on all modern operating systems (macOS, Linux with glibc 2.26+, Windows 10+) — no `/etc/hosts` edit required. If your system is old enough that it doesn't resolve, add `127.0.0.1 scdigger.localhost` to your hosts file.
 
 ## Setup (manual)
 
@@ -83,7 +85,7 @@ dotnet user-secrets set "SoundCloud:ClientId" "YOUR_CLIENT_ID"
 dotnet user-secrets set "SoundCloud:ClientSecret" "YOUR_CLIENT_SECRET"
 ```
 
-Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/you/apps) to `http://localhost:5032/auth/callback`.
+Set the redirect URI in your [SoundCloud developer app](https://soundcloud.com/you/apps) to `http://scdigger.localhost:5173/auth/callback`.
 
 ### 2. Run
 
@@ -106,9 +108,9 @@ cd backend && dotnet run --project src/SoundCloudDigger.Api
 cd frontend && npm run dev
 ```
 
-Open `http://localhost:5173` and click "Log in with SoundCloud."
+Open `http://scdigger.localhost:5173` and click "Log in with SoundCloud."
 
-The Vite dev server proxies `/api` and `/auth` requests to the backend (port 5032) automatically.
+The Vite dev server proxies `/api` and `/auth` requests to the backend (port 5032) automatically. The OAuth callback path (`/auth/callback`) goes through the proxy so the session cookie set by the backend is scoped to the same origin the browser sees.
 
 ## Running tests
 

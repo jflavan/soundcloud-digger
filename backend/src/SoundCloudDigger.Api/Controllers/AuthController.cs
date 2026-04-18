@@ -77,7 +77,7 @@ public class AuthController : Controller
             }
         });
 
-        var frontendUrl = _config["FrontendUrl"] ?? "http://localhost:5173";
+        var frontendUrl = _config["FrontendUrl"] ?? "http://scdigger.localhost:5173";
         return Redirect($"{frontendUrl}/feed");
     }
 

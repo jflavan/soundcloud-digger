@@ -31,11 +31,11 @@ $backend = Start-Process -NoNewWindow -PassThru -FilePath dotnet `
 
 Write-Host "Starting frontend on port 5173..."
 $frontend = Start-Process -NoNewWindow -PassThru -FilePath npm `
-    -ArgumentList "run","dev","--","--open" `
+    -ArgumentList "run","dev","--","--open","http://scdigger.localhost:5173" `
     -WorkingDirectory "$Root/frontend"
 
 Write-Host ""
-Write-Host "Open http://localhost:5173 in your browser."
+Write-Host "Open http://scdigger.localhost:5173 in your browser."
 Write-Host "Press Ctrl+C to stop."
 
 try {

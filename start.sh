@@ -18,10 +18,10 @@ echo "Starting backend on port 5032..."
 (cd "$ROOT/backend" && dotnet run --project src/SoundCloudDigger.Api --no-restore) &
 
 echo "Starting frontend on port 5173..."
-(cd "$ROOT/frontend" && npm run dev -- --open) &
+(cd "$ROOT/frontend" && npm run dev -- --open http://scdigger.localhost:5173) &
 
 echo ""
-echo "Open http://localhost:5173 in your browser."
+echo "Open http://scdigger.localhost:5173 in your browser."
 echo "Press Ctrl+C to stop."
 
 wait

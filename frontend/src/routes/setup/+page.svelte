@@ -41,7 +41,7 @@
 					<li>Give it any name (e.g. "SoundCloud Digger")</li>
 					<li>
 						Set the <strong>Redirect URI</strong> to:
-						<code class="uri">http://localhost:5032/auth/callback</code>
+						<code class="uri">http://scdigger.localhost:5173/auth/callback</code>
 					</li>
 					<li>Save the app, then copy your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
 				</ol>
