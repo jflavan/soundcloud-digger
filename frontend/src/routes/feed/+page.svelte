@@ -38,7 +38,14 @@
 			.map((t) => t.permalinkUrl)
 			.filter((u): u is string => u !== null);
 		shuffleQueue = buildShuffleQueue(urls, selectedUrl);
-		shuffleIndex = selectedUrl && shuffleQueue[0] === selectedUrl ? 0 : -1;
+		if (shuffleQueue.length === 0) {
+			shuffleIndex = -1;
+		} else if (selectedUrl && shuffleQueue[0] === selectedUrl) {
+			shuffleIndex = 0;
+		} else {
+			shuffleIndex = 0;
+			selectedUrl = shuffleQueue[0];
+		}
 	}
 
 	function cycleTrack(direction: number) {
