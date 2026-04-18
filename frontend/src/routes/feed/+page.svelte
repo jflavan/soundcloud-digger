@@ -202,8 +202,10 @@
 {#if selectedTrack}
 	<BottomPlayer
 		track={selectedTrack}
+		shuffle={shuffleEnabled}
 		onprev={() => cycleTrack(-1)}
 		onnext={() => cycleTrack(1)}
+		ontoggleShuffle={toggleShuffle}
 		onclose={() => (selectedUrl = null)}
 	/>
 {/if}
