@@ -7,11 +7,15 @@
 	import TrackList from '$lib/components/TrackList.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
 	import BottomPlayer from '$lib/components/BottomPlayer.svelte';
+	import { buildShuffleQueue } from '$lib/stores/shuffleQueue';
 
 	let error = $state('');
 	let refreshing = $state(false);
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let selectedUrl = $state<string | null>(null);
+	let shuffleEnabled = $state(false);
+	let shuffleQueue = $state<string[]>([]);
+	let shuffleIndex = $state(-1);
 
 	const selectedTrack = $derived(
 		selectedUrl ? $filteredFeed.find((t) => t.permalinkUrl === selectedUrl) ?? null : null
@@ -20,6 +24,21 @@
 	function selectTrack(url: string | null) {
 		if (!url) return;
 		selectedUrl = selectedUrl === url ? null : url;
+	}
+
+	function toggleShuffle() {
+		if (shuffleEnabled) {
+			shuffleEnabled = false;
+			shuffleQueue = [];
+			shuffleIndex = -1;
+			return;
+		}
+		shuffleEnabled = true;
+		const urls = $filteredFeed
+			.map((t) => t.permalinkUrl)
+			.filter((u): u is string => u !== null);
+		shuffleQueue = buildShuffleQueue(urls, selectedUrl);
+		shuffleIndex = selectedUrl && shuffleQueue[0] === selectedUrl ? 0 : -1;
 	}
 
 	function cycleTrack(direction: number) {
