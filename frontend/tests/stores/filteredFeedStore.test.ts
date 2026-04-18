@@ -225,6 +225,50 @@ describe('filterAndSort', () => {
 		expect(result[0].title).toBe('RecentUpload');
 	});
 
+	it('excludes tracks with excluded genres', () => {
+		const tracks = [
+			makeTrack({ title: 'A', genre: 'Electronic' }),
+			makeTrack({ title: 'B', genre: 'Hip-hop' }),
+			makeTrack({ title: 'C', genre: 'Ambient' }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null, 'feed', ['Hip-hop']);
+		expect(result).toHaveLength(2);
+		expect(result.map((t) => t.genre)).toEqual(['Electronic', 'Ambient']);
+	});
+
+	it('exclusion wins over inclusion for same genre', () => {
+		const tracks = [
+			makeTrack({ title: 'A', genre: 'Electronic' }),
+			makeTrack({ title: 'B', genre: 'Hip-hop' }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', ['Electronic', 'Hip-hop'], null, null, 'feed', ['Hip-hop']);
+		expect(result).toHaveLength(1);
+		expect(result[0].genre).toBe('Electronic');
+	});
+
+	it('tracks with null genre are not excluded', () => {
+		const tracks = [
+			makeTrack({ title: 'A', genre: null }),
+			makeTrack({ title: 'B', genre: 'Electronic' }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null, 'feed', ['Electronic']);
+		expect(result).toHaveLength(1);
+		expect(result[0].title).toBe('A');
+	});
+
+	it('empty excluded genres array excludes nothing', () => {
+		const tracks = [
+			makeTrack({ title: 'A', genre: 'Electronic' }),
+			makeTrack({ title: 'B', genre: 'Hip-hop' }),
+		];
+
+		const result = filterAndSort(tracks, 'likes', 'all', [], null, null, 'feed', []);
+		expect(result).toHaveLength(2);
+	});
+
 	it('filters by appearedAt when timeField is feed (default)', () => {
 		const now = new Date();
 		const recentAppeared = new Date(now.getTime() - 12 * 60 * 60 * 1000);

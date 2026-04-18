@@ -19,3 +19,9 @@ appsettings.Development.json
 
 # Playwright MCP
 .playwright-mcp/
+
+# macOS
+.DS_Store
+
+# Local ignore files
+.gastown-ignore

@@ -9,6 +9,7 @@
 	import BottomPlayer from '$lib/components/BottomPlayer.svelte';
 
 	let error = $state('');
+	let refreshing = $state(false);
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let selectedUrl = $state<string | null>(null);
 
@@ -71,6 +72,12 @@
 		intervalId = setInterval(pollFeed, 60000);
 	}
 
+	async function refreshFeed() {
+		refreshing = true;
+		await pollFeed();
+		refreshing = false;
+	}
+
 	async function handleLogout() {
 		await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
 		window.location.href = '/';
@@ -107,6 +114,17 @@
 </div>
 
 <div class="fab-group" class:has-player={selectedTrack !== null}>
+	<button
+		class="fab"
+		class:spinning={refreshing}
+		title="Refresh feed"
+		disabled={refreshing}
+		onclick={refreshFeed}
+	>
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+			<path d="M17.65 6.35A7.958 7.958 0 0 0 12 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+		</svg>
+	</button>
 	{#if selectedTrack}
 		<button
 			class="fab"
@@ -207,5 +225,12 @@
 		color: #f50;
 		border-color: #f50;
 		background: rgba(255, 85, 0, 0.08);
+	}
+	.fab.spinning svg {
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
 </style>

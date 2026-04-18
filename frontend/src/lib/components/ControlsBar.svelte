@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { SortBy, TimeRange, TimeField } from '$lib/types';
-	import { sortBy, timeRange, selectedGenres, timeField } from '$lib/stores/filterStore';
+	import { sortBy, timeRange, selectedGenres, excludedGenres, timeField } from '$lib/stores/filterStore';
 	import { availableGenres } from '$lib/stores/filteredFeedStore';
 	import DurationRangeSlider from './DurationRangeSlider.svelte';
 
 	let dropdownOpen = $state(false);
+	let excludeDropdownOpen = $state(false);
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'likes', label: 'Likes' },
@@ -23,6 +24,15 @@
 
 	function toggleGenre(genre: string) {
 		selectedGenres.update((current) => {
+			if (current.includes(genre)) {
+				return current.filter((g) => g !== genre);
+			}
+			return [...current, genre];
+		});
+	}
+
+	function toggleExcludedGenre(genre: string) {
+		excludedGenres.update((current) => {
 			if (current.includes(genre)) {
 				return current.filter((g) => g !== genre);
 			}
@@ -94,6 +104,31 @@
 									type="checkbox"
 									checked={$selectedGenres.includes(genre)}
 									onchange={() => toggleGenre(genre)}
+								/>
+								{genre}
+							</label>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="control-group genre-group">
+			<span class="label">Exclude:</span>
+			<div class="genre-dropdown">
+				<button class="dropdown-toggle" onclick={() => (excludeDropdownOpen = !excludeDropdownOpen)}>
+					{$excludedGenres.length === 0
+						? 'None'
+						: `${$excludedGenres.length} excluded`}
+				</button>
+				{#if excludeDropdownOpen}
+					<div class="dropdown-menu">
+						{#each $availableGenres as genre}
+							<label class="dropdown-item">
+								<input
+									type="checkbox"
+									checked={$excludedGenres.includes(genre)}
+									onchange={() => toggleExcludedGenre(genre)}
 								/>
 								{genre}
 							</label>

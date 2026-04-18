@@ -47,9 +47,6 @@
 
 		loadWidgetApi().then(() => {
 			iframe.addEventListener('load', () => bindFinishEvent(iframe), { once: true });
-			if (iframe.contentWindow) {
-				bindFinishEvent(iframe);
-			}
 		}).catch((err) => console.warn('SC Widget API unavailable, autoplay-next disabled:', err));
 	});
 </script>
