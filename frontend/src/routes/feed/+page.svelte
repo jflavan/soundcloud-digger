@@ -44,6 +44,25 @@
 	function cycleTrack(direction: number) {
 		const tracks = $filteredFeed.filter((t) => t.permalinkUrl != null);
 		if (tracks.length === 0) return;
+
+		if (shuffleEnabled) {
+			if (direction > 0) {
+				if (shuffleIndex + 1 < shuffleQueue.length) {
+					shuffleIndex += 1;
+				} else {
+					const urls = tracks
+						.map((t) => t.permalinkUrl)
+						.filter((u): u is string => u !== null);
+					shuffleQueue = buildShuffleQueue(urls, selectedUrl);
+					shuffleIndex = shuffleQueue.length > 1 ? 1 : 0;
+				}
+			} else {
+				shuffleIndex = Math.max(0, shuffleIndex - 1);
+			}
+			selectedUrl = shuffleQueue[shuffleIndex] ?? null;
+			return;
+		}
+
 		const currentIndex = tracks.findIndex((t) => t.permalinkUrl === selectedUrl);
 		let nextIndex: number;
 		if (currentIndex === -1) {
