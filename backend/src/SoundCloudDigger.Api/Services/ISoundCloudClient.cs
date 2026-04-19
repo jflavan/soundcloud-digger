@@ -10,4 +10,5 @@ public interface ISoundCloudClient
     Task SignOut(string accessToken);
     Task<SoundCloudUsersResponse> GetFollowings(string accessToken, string? nextHref = null);
     Task<SoundCloudRepostsResponse> GetUserReposts(string userUrn, string accessToken, string? nextHref = null);
+    Task<SoundCloudUser> GetMe(string accessToken);
 }

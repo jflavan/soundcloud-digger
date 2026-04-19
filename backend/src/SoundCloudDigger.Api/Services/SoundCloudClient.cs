@@ -98,6 +98,9 @@ public class SoundCloudClient : ISoundCloudClient
             nextHref ?? $"https://api.soundcloud.com/users/{Uri.EscapeDataString(userUrn)}/reposts/tracks?limit=200&linked_partitioning=true",
             accessToken);
 
+    public Task<SoundCloudUser> GetMe(string accessToken)
+        => AuthedGet<SoundCloudUser>("https://api.soundcloud.com/me", accessToken);
+
     private Task<T> AuthedGet<T>(string url, string accessToken)
     {
         return _retry.ExecuteAsync(ct =>

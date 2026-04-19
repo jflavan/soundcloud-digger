@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Helpers;
 using SoundCloudDigger.Api.Services;
 
@@ -12,19 +13,25 @@ public class AuthController : Controller
     private readonly ITokenService _tokenService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IFeedCache _feedCache;
+    private readonly SessionStore _sessionStore;
+    private readonly SqliteConnection _db;
 
     public AuthController(
         IConfiguration config,
         ISoundCloudClient client,
         ITokenService tokenService,
         IServiceScopeFactory scopeFactory,
-        IFeedCache feedCache)
+        IFeedCache feedCache,
+        SessionStore sessionStore,
+        SqliteConnection db)
     {
         _config = config;
         _client = client;
         _tokenService = tokenService;
         _scopeFactory = scopeFactory;
         _feedCache = feedCache;
+        _sessionStore = sessionStore;
+        _db = db;
     }
 
     [HttpGet("/auth/login")]
@@ -58,7 +65,35 @@ public class AuthController : Controller
         var redirectUri = _config["SoundCloud:RedirectUri"]!;
         var tokenResponse = await _client.ExchangeCodeForToken(code, verifier, redirectUri);
 
+        var me = await _client.GetMe(tokenResponse.AccessToken);
+
+        // Upsert user row
+        using (var cmd = _db.CreateCommand())
+        {
+            cmd.CommandText = @"
+INSERT INTO users (urn, username, display_name, fetched_at)
+VALUES (@urn, @username, @displayName, @now)
+ON CONFLICT(urn) DO UPDATE SET
+    username = excluded.username,
+    display_name = excluded.display_name,
+    fetched_at = excluded.fetched_at;";
+            cmd.Parameters.AddWithValue("@urn", me.Urn);
+            cmd.Parameters.AddWithValue("@username", me.Username ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@displayName", me.Username ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            cmd.ExecuteNonQuery();
+        }
+
         var sessionId = Guid.NewGuid().ToString("N");
+
+        // Create session row (dual-write alongside TokenService.Store below)
+        _sessionStore.Create(
+            sessionId,
+            me.Urn,
+            tokenResponse.AccessToken,
+            tokenResponse.RefreshToken,
+            DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
+
         _tokenService.Store(sessionId, tokenResponse.AccessToken, tokenResponse.RefreshToken, tokenResponse.ExpiresIn);
         HttpContext.Session.SetString("session_id", sessionId);
 
@@ -95,6 +130,7 @@ public class AuthController : Controller
             }
             _tokenService.Remove(sessionId);
             _feedCache.Clear(sessionId);
+            _sessionStore.Delete(sessionId);
         }
         HttpContext.Session.Clear();
         return Ok();
