@@ -81,9 +81,9 @@ public class FeedServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task StartFetch_StopsWhenAllTracksOlderThan24Hours()
+    public async Task StartFetch_StopsWhenAllTracksOlderThanCutoff()
     {
-        var old = DateTime.UtcNow.AddDays(-2);
+        var old = DateTime.UtcNow.AddDays(-31);
         _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
         _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
             .ReturnsAsync(MakeResponse([("Old Track", old, 5)], "https://next-page"));
