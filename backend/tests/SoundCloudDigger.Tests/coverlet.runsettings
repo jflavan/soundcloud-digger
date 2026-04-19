@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Exclude>[SoundCloudDigger.Api]SoundCloudDigger.Api.Program,[SoundCloudDigger.Api]SoundCloudDigger.Api.EnvFileLoader,[SoundCloudDigger.Api]SoundCloudDigger.Api.Controllers.SetupController,[SoundCloudDigger.Api]SoundCloudDigger.Api.Models.SoundCloudDateTimeConverter,[SoundCloudDigger.Api]SoundCloudDigger.Api.Services.Persistence.Migrations.*,[SoundCloudDigger.Api]SoundCloudDigger.Api.Services.Persistence.Db</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

@@ -18,7 +18,7 @@ public class FeedServiceTests : IDisposable
     public FeedServiceTests()
     {
         _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(_db);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
         _cache = new FeedCache(_db, store);

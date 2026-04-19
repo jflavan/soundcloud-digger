@@ -36,7 +36,7 @@ public class AuthControllerTests : IDisposable
             .Build();
 
         _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         _sessionStore = new SessionStore(_db);
 
         _mockDiscoverService

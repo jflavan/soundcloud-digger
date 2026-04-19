@@ -25,3 +25,4 @@ appsettings.Development.json
 
 # Local ignore files
 .gastown-ignore
+backend/tests/SoundCloudDigger.Tests/TestResults/

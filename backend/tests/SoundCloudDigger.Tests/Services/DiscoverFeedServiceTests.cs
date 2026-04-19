@@ -12,7 +12,7 @@ public class DiscoverFeedServiceTests
     private Microsoft.Data.Sqlite.SqliteConnection CreateDb()
     {
         var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         return conn;
     }
 
@@ -47,9 +47,10 @@ INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at) VALUES ('a1
         using var conn = CreateDb();
         conn.Execute(
             "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
+        var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         conn.Execute(@"
-INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at)
-VALUES ('a1', 'trackKnown', 0);");
+INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at, last_full_reset_at)
+VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
 
         var client = new Mock<ISoundCloudClient>();
         client.Setup(c => c.GetUserReposts("a1", It.IsAny<string>(), null))
@@ -116,5 +117,56 @@ VALUES ('a1', 'trackKnown', 0);");
         await Task.WhenAll(svc.StartFetchAsync("u1"), svc.StartFetchAsync("u1"));
 
         Assert.Equal(1, callCount);
+    }
+
+    [Fact]
+    public async Task Fetch_FullResetDropsRepostsNoLongerReturnedByArtist()
+    {
+        using var conn = CreateDb();
+        var eightDaysAgo = DateTimeOffset.UtcNow.AddDays(-8).ToUnixTimeSeconds();
+        conn.Execute(
+            "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
+        conn.Execute(@"
+INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at, last_full_reset_at)
+VALUES ('a1', 'oldCursor', @t, @t);", new { t = eightDaysAgo });
+        conn.Execute(@"
+INSERT INTO artist_reposts (artist_urn, track_urn, reposted_at)
+VALUES ('a1', 'trackUnreposted', @t), ('a1', 'trackStillUp', @t);",
+            new { t = eightDaysAgo });
+        conn.Execute(@"
+INSERT INTO tracks (urn, payload_json, updated_at)
+VALUES ('trackUnreposted', '{}', @t), ('trackStillUp', '{}', @t);",
+            new { t = eightDaysAgo });
+
+        var client = new Mock<ISoundCloudClient>();
+        client.Setup(c => c.GetUserReposts("a1", It.IsAny<string>(), null))
+            .ReturnsAsync(new SoundCloudRepostsResponse
+            {
+                Collection = new()
+                {
+                    new SoundCloudRepost { CreatedAt = "2026-04-18T00:00:00Z",
+                        Track = new SoundCloudTrack { PermalinkUrl = "trackStillUp", Title = "Still up" } },
+                },
+                NextHref = null,
+            });
+
+        var tokens = new Mock<ITokenService>();
+        tokens.Setup(t => t.GetValidAccessTokenAsync("u1")).ReturnsAsync("at");
+        var followings = new Mock<IFollowingsService>();
+        followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
+
+        var repo = new DiscoverRepository(conn);
+        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object,
+            followings.Object, repo);
+
+        await svc.StartFetchAsync("u1");
+
+        Assert.Equal(0L, conn.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM artist_reposts WHERE track_urn='trackUnreposted';"));
+        Assert.Equal(1L, conn.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM artist_reposts WHERE track_urn='trackStillUp';"));
+        var resetAt = conn.ExecuteScalar<long>(
+            "SELECT last_full_reset_at FROM artist_fetch_state WHERE artist_urn='a1';");
+        Assert.True(resetAt > eightDaysAgo);
     }
 }

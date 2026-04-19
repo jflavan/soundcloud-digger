@@ -12,7 +12,7 @@ public class FeedCacheTests
     private (FeedCache cache, Microsoft.Data.Sqlite.SqliteConnection conn, SessionStore store) CreateSut()
     {
         var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(conn);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
         return (new FeedCache(conn, store), conn, store);

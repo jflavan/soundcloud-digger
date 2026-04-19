@@ -13,7 +13,7 @@ public class FollowingsServiceTests
     public async Task Ensure_FetchesFromApiWhenEmpty()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var tokenSvc = new Mock<ITokenService>();
         tokenSvc.Setup(t => t.GetValidAccessTokenAsync("u1")).ReturnsAsync("at");
 
@@ -37,7 +37,7 @@ public class FollowingsServiceTests
     public async Task Ensure_UsesCacheWithinTtl()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         conn.Execute(@"
 INSERT INTO followings (user_urn, followed_urn, fetched_at)
 VALUES ('u1', 'soundcloud:users:7', @now);",

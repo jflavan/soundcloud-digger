@@ -42,7 +42,9 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 - **Frontend:** SvelteKit (Svelte 5) SPA — client-side sorting and filtering
 - **Persistence:** SQLite file at `<LocalAppData>/soundcloud-digger/app.db`. Sessions, OAuth tokens, feed data, and Discover cache all survive app restarts
 
-The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and persists everything to SQLite. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness. Discover runs a 30-minute background refresh of every followed artist's reposts, with a cursor high-water mark so steady-state refreshes are cheap.
+The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and persists everything to SQLite. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness. Discover runs a 30-minute background refresh of every followed artist's reposts, with a cursor high-water mark so steady-state refreshes are cheap. Once a week, Discover does a full re-walk of each artist's reposts to prune tracks the artist has since un-reposted.
+
+`GET /api/health/metrics` returns row counts for every persisted table — handy for sanity-checking background work.
 
 > **Note on tokens:** OAuth refresh tokens are currently stored plaintext in the SQLite file (file permissions restrict it to owner-only). At-rest encryption via `Microsoft.AspNetCore.DataProtection` is a planned follow-up.
 
@@ -130,6 +132,10 @@ The Vite dev server proxies `/api` and `/auth` requests to the backend (port 503
 # Backend
 cd backend
 dotnet test
+rm -rf tests/SoundCloudDigger.Tests/TestResults && \
+  dotnet test --collect:"XPlat Code Coverage" \
+    --settings tests/SoundCloudDigger.Tests/coverlet.runsettings && \
+  ./check-coverage.sh     # fails under 75% line / 60% branch
 
 # Frontend
 cd frontend
@@ -138,6 +144,8 @@ npm run test:coverage    # run with coverage report (fails under 80%)
 ```
 
 The frontend coverage threshold is 80% across statements, branches, functions, and lines, enforced by `vitest --coverage`. The HTML report is written to `frontend/coverage/`.
+
+The backend threshold is 75% line / 60% branch, enforced by `backend/check-coverage.sh` reading the cobertura XML produced by coverlet. `Program.cs`, `EnvFileLoader`, `SetupController`, migrations, and the `Db` bootstrap helper are excluded via `coverlet.runsettings`.
 
 ## Project structure
 

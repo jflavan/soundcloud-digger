@@ -67,7 +67,7 @@ public class TokenServiceTests
     public async Task GetValidAccessTokenAsync_ReturnsExisting_WhenNotExpired()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(conn);
         store.Create("s1", "u1", "goodtoken", "rt", DateTimeOffset.UtcNow.AddMinutes(30));
 
@@ -84,7 +84,7 @@ public class TokenServiceTests
     public async Task GetValidAccessTokenAsync_RefreshesWhenExpired()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(conn);
         store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
 
@@ -107,7 +107,7 @@ public class TokenServiceTests
     public async Task GetValidAccessTokenAsync_ReturnsNullWhenNoSession()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(conn);
 
         var client = new Mock<ISoundCloudClient>();
@@ -122,7 +122,7 @@ public class TokenServiceTests
     public async Task GetValidAccessTokenAsync_ReturnsNullWhenRefreshFails()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
         var store = new SessionStore(conn);
         store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
 

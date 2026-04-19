@@ -29,7 +29,7 @@ builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>()
 builder.Services.AddSingleton<Microsoft.Data.Sqlite.SqliteConnection>(_ =>
 {
     var conn = Db.Open();
-    SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+    SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
     return conn;
 });
 

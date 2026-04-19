@@ -8,6 +8,7 @@ public class DiscoverFeedService : IDiscoverFeedService
 {
     private static readonly TimeSpan ArtistTtl = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan CooldownTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FullResetInterval = TimeSpan.FromDays(7);
     private readonly SqliteConnection _conn;
     private readonly ISoundCloudClient _client;
     private readonly ITokenService _tokens;
@@ -75,10 +76,15 @@ public class DiscoverFeedService : IDiscoverFeedService
     {
         try
         {
-            var cursor = _repo.GetArtistCursor(artistUrn);
+            var lastFullReset = _repo.GetArtistLastFullReset(artistUrn);
+            var doFullReset = lastFullReset is null
+                || DateTimeOffset.UtcNow - lastFullReset.Value >= FullResetInterval;
+
+            var cursor = doFullReset ? null : _repo.GetArtistCursor(artistUrn);
             string? next = null;
             string? newCursor = null;
             var stopWalking = false;
+            var seenUrns = doFullReset ? new List<string>() : null;
 
             do
             {
@@ -86,19 +92,28 @@ public class DiscoverFeedService : IDiscoverFeedService
                 foreach (var repost in page.Collection)
                 {
                     if (repost.Track is null) continue;
-                    if (repost.Track.PermalinkUrl == cursor) { stopWalking = true; break; }
+                    if (!doFullReset && repost.Track.PermalinkUrl == cursor)
+                    {
+                        stopWalking = true;
+                        break;
+                    }
 
                     var feedTrack = FeedTrack.FromTrack(repost.Track, repost.CreatedAt);
                     if (!DateTimeOffset.TryParse(repost.CreatedAt, out var reposted))
                         reposted = DateTimeOffset.UtcNow;
                     _repo.UpsertTrackAndRepost(artistUrn, feedTrack, reposted);
+                    if (repost.Track.PermalinkUrl is not null)
+                        seenUrns?.Add(repost.Track.PermalinkUrl);
 
                     newCursor ??= repost.Track.PermalinkUrl;
                 }
                 next = page.NextHref;
             } while (next is not null && !stopWalking);
 
-            _repo.UpsertArtistFetchState(artistUrn, newCursor ?? cursor);
+            if (doFullReset && seenUrns is not null)
+                _repo.DeleteRepostsMissingAfterFullReset(artistUrn, seenUrns);
+
+            _repo.UpsertArtistFetchState(artistUrn, newCursor ?? cursor, doFullReset);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

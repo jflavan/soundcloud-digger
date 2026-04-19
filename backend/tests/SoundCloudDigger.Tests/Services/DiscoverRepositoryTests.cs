@@ -12,7 +12,7 @@ public class DiscoverRepositoryTests
     private Microsoft.Data.Sqlite.SqliteConnection Seed()
     {
         var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
 
         void AddArtist(string urn, string name) =>
             conn.Execute(

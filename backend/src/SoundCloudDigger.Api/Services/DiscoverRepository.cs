@@ -83,14 +83,44 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
         return ts is null ? null : DateTimeOffset.FromUnixTimeSeconds(ts.Value);
     }
 
-    public void UpsertArtistFetchState(string artistUrn, string? cursor)
+    public DateTimeOffset? GetArtistLastFullReset(string artistUrn)
+    {
+        var ts = _conn.ExecuteScalar<long?>(
+            "SELECT last_full_reset_at FROM artist_fetch_state WHERE artist_urn=@a;",
+            new { a = artistUrn });
+        return ts is null or 0 ? null : DateTimeOffset.FromUnixTimeSeconds(ts.Value);
+    }
+
+    public void UpsertArtistFetchState(string artistUrn, string? cursor, bool didFullReset = false)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var resetAt = didFullReset ? now : (long?)null;
         _conn.Execute(@"
-INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at)
-VALUES (@a, @c, @now)
-ON CONFLICT(artist_urn) DO UPDATE SET cursor=excluded.cursor, last_fetched_at=excluded.last_fetched_at;",
-            new { a = artistUrn, c = cursor, now });
+INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at, last_full_reset_at)
+VALUES (@a, @c, @now, COALESCE(@reset, 0))
+ON CONFLICT(artist_urn) DO UPDATE SET
+  cursor=excluded.cursor,
+  last_fetched_at=excluded.last_fetched_at,
+  last_full_reset_at=COALESCE(@reset, artist_fetch_state.last_full_reset_at);",
+            new { a = artistUrn, c = cursor, now, reset = resetAt });
+    }
+
+    public void DeleteRepostsMissingAfterFullReset(string artistUrn, IEnumerable<string> seenTrackUrns)
+    {
+        // Caller invokes this only after a full reset walk, having collected every current repost.
+        var urns = seenTrackUrns.ToList();
+        if (urns.Count == 0)
+        {
+            _conn.Execute(
+                "DELETE FROM artist_reposts WHERE artist_urn=@a;",
+                new { a = artistUrn });
+            return;
+        }
+        _conn.Execute(@"
+DELETE FROM artist_reposts
+WHERE artist_urn=@a
+  AND track_urn NOT IN @urns;",
+            new { a = artistUrn, urns });
     }
 
     public void UpsertTrackAndRepost(string artistUrn, FeedTrack track, DateTimeOffset repostedAt)

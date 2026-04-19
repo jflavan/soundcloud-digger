@@ -19,7 +19,7 @@ public class V1_InitialSchemaTests
     public void Creates_ExpectedTables(string tableName)
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
 
         var found = conn.ExecuteScalar<string?>(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=@name;",
@@ -32,7 +32,7 @@ public class V1_InitialSchemaTests
     public void Creates_ExpectedIndexes()
     {
         using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
 
         var indexes = conn.Query<string>(
             "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%';")
