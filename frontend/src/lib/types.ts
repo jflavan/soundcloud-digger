@@ -25,3 +25,17 @@ export interface FeedResponse {
 export type SortBy = 'likes' | 'date' | 'plays' | 'reposts' | 'comments';
 export type TimeRange = '24h' | '7d' | '30d' | 'all';
 export type TimeField = 'feed' | 'uploaded';
+
+export interface DiscoverTrack extends FeedTrack {
+	reposterCount: number;
+	reposters: string[];
+	lastRepostedAt: string;
+}
+
+export interface DiscoverResponse {
+	tracks: DiscoverTrack[];
+	totalCount: number;
+	loadingComplete: boolean;
+	lastRefreshedAt: string | null;
+	progress: number;
+}
