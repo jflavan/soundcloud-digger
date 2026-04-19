@@ -116,11 +116,23 @@ ON CONFLICT(artist_urn) DO UPDATE SET
                 new { a = artistUrn });
             return;
         }
+
+        // Use a temp table instead of `NOT IN @urns` — Dapper expands the latter to one
+        // parameter per URN and whale artists can blow past SQLite's variable-count limit.
+        using var tx = _conn.BeginTransaction();
+        _conn.Execute("CREATE TEMP TABLE IF NOT EXISTS seen_track_urns (urn TEXT PRIMARY KEY);", transaction: tx);
+        _conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
+        _conn.Execute(
+            "INSERT INTO seen_track_urns (urn) VALUES (@urn);",
+            urns.Select(u => new { urn = u }),
+            transaction: tx);
         _conn.Execute(@"
 DELETE FROM artist_reposts
 WHERE artist_urn=@a
-  AND track_urn NOT IN @urns;",
-            new { a = artistUrn, urns });
+  AND track_urn NOT IN (SELECT urn FROM seen_track_urns);",
+            new { a = artistUrn }, tx);
+        _conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
+        tx.Commit();
     }
 
     public void UpsertTrackAndRepost(string artistUrn, FeedTrack track, DateTimeOffset repostedAt)

@@ -76,6 +76,30 @@ public class DiscoverRepositoryTests
     }
 
     [Fact]
+    public void DeleteRepostsMissingAfterFullReset_HandlesUrnCountAboveSqliteParameterLimit()
+    {
+        // SQLite's default SQLITE_LIMIT_VARIABLE_NUMBER is 999 on older builds. We stage into
+        // a temp table, so the number of URNs is irrelevant. 2000 is well past the limit.
+        using var conn = Db.OpenInMemory();
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+
+        var keep = Enumerable.Range(0, 2000).Select(i => $"track_keep_{i}").ToList();
+        var drop = new[] { "track_drop_1", "track_drop_2" };
+        foreach (var urn in keep.Concat(drop))
+            conn.Execute(
+                "INSERT INTO artist_reposts (artist_urn, track_urn, reposted_at) VALUES ('a1', @t, 0);",
+                new { t = urn });
+
+        var repo = new DiscoverRepository(conn);
+        repo.DeleteRepostsMissingAfterFullReset("a1", keep);
+
+        Assert.Equal(2000L, conn.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM artist_reposts WHERE artist_urn='a1';"));
+        Assert.Equal(0L, conn.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM artist_reposts WHERE track_urn IN ('track_drop_1', 'track_drop_2');"));
+    }
+
+    [Fact]
     public void GetProgress_ReturnsFractionFetched()
     {
         using var conn = Seed();

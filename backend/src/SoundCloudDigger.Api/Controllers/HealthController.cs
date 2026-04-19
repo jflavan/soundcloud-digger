@@ -1,8 +1,18 @@
+using System.Net;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
 namespace SoundCloudDigger.Api.Controllers;
+
+public record MetricsResponse(
+    long Sessions,
+    long Users,
+    long Tracks,
+    long FeedTracks,
+    long Followings,
+    long ArtistReposts,
+    long ArtistsFetched);
 
 [ApiController]
 public class HealthController : Controller
@@ -17,23 +27,17 @@ public class HealthController : Controller
     [HttpGet("/api/health/metrics")]
     public IActionResult Metrics()
     {
-        var sessions = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions;");
-        var users = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM users;");
-        var tracks = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM tracks;");
-        var feedTracks = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM feed_tracks;");
-        var followings = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM followings;");
-        var artistReposts = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM artist_reposts;");
-        var artistsFetched = _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM artist_fetch_state;");
+        var ip = HttpContext.Connection.RemoteIpAddress;
+        if (ip is null || (!IPAddress.IsLoopback(ip)))
+            return NotFound();
 
-        return Ok(new
-        {
-            sessions,
-            users,
-            tracks,
-            feedTracks,
-            followings,
-            artistReposts,
-            artistsFetched,
-        });
+        return Ok(new MetricsResponse(
+            Sessions: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions;"),
+            Users: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM users;"),
+            Tracks: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM tracks;"),
+            FeedTracks: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM feed_tracks;"),
+            Followings: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM followings;"),
+            ArtistReposts: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM artist_reposts;"),
+            ArtistsFetched: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM artist_fetch_state;")));
     }
 }

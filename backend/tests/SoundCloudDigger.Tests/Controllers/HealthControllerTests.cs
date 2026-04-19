@@ -1,5 +1,6 @@
-using System.Reflection;
+using System.Net;
 using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SoundCloudDigger.Api.Controllers;
 using SoundCloudDigger.Api.Services.Persistence;
@@ -16,6 +17,16 @@ public class HealthControllerTests
         return conn;
     }
 
+    private static HealthController CreateController(
+        Microsoft.Data.Sqlite.SqliteConnection conn, IPAddress? remoteIp)
+    {
+        var controller = new HealthController(conn);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Connection.RemoteIpAddress = remoteIp;
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        return controller;
+    }
+
     [Fact]
     public void Metrics_ReturnsCountsFromAllTables()
     {
@@ -24,20 +35,36 @@ public class HealthControllerTests
         conn.Execute("INSERT INTO tracks (urn, payload_json, updated_at) VALUES ('t1', '{}', 0), ('t2', '{}', 0);");
         conn.Execute("INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
 
-        var controller = new HealthController(conn);
+        var controller = CreateController(conn, IPAddress.Loopback);
         var result = controller.Metrics() as OkObjectResult;
 
         Assert.NotNull(result);
-        var value = result!.Value!;
-        Assert.Equal(1L, ReadProp(value, "users"));
-        Assert.Equal(2L, ReadProp(value, "tracks"));
-        Assert.Equal(1L, ReadProp(value, "followings"));
-        Assert.Equal(0L, ReadProp(value, "sessions"));
+        var metrics = Assert.IsType<MetricsResponse>(result!.Value);
+        Assert.Equal(1L, metrics.Users);
+        Assert.Equal(2L, metrics.Tracks);
+        Assert.Equal(1L, metrics.Followings);
+        Assert.Equal(0L, metrics.Sessions);
     }
 
-    private static long ReadProp(object obj, string name)
+    [Fact]
+    public void Metrics_Returns404ForNonLoopbackRequest()
     {
-        var prop = obj.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
-        return (long)prop!.GetValue(obj)!;
+        using var conn = CreateDb();
+        var controller = CreateController(conn, IPAddress.Parse("203.0.113.5"));
+
+        var result = controller.Metrics();
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public void Metrics_AcceptsIPv6Loopback()
+    {
+        using var conn = CreateDb();
+        var controller = CreateController(conn, IPAddress.IPv6Loopback);
+
+        var result = controller.Metrics();
+
+        Assert.IsType<OkObjectResult>(result);
     }
 }

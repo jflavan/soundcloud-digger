@@ -110,6 +110,9 @@ public class DiscoverFeedService : IDiscoverFeedService
                 next = page.NextHref;
             } while (next is not null && !stopWalking);
 
+            // Prune only after a complete walk. On mid-walk failure we fall through to the
+            // catch below, leave last_full_reset_at untouched, and retry the whole walk next
+            // cycle — better than deleting reposts that might be on a page we never reached.
             if (doFullReset && seenUrns is not null)
                 _repo.DeleteRepostsMissingAfterFullReset(artistUrn, seenUrns);
 
