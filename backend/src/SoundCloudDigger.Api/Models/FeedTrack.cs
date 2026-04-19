@@ -43,6 +43,28 @@ public class FeedTrack
         };
     }
 
+    public static FeedTrack FromTrack(SoundCloudTrack track, string createdAt)
+    {
+        return new FeedTrack
+        {
+            Title = track.Title ?? "",
+            ArtistName = track.User?.Username ?? "",
+            ArtworkUrl = track.ArtworkUrl ?? "",
+            Genre = track.Genre ?? "",
+            Tags = ParseTagList(track.TagList),
+            LikesCount = track.FavoritingsCount ?? 0,
+            PlaybackCount = track.PlaybackCount ?? 0,
+            RepostsCount = track.RepostsCount ?? 0,
+            CommentCount = track.CommentCount ?? 0,
+            CreatedAt = track.CreatedAt,
+            PermalinkUrl = track.PermalinkUrl ?? "",
+            Duration = track.Duration ?? 0,
+            Access = track.Access ?? "playable",
+            ActivityType = "track-repost",
+            AppearedAt = DateTimeOffset.TryParse(createdAt, out var a) ? a.UtcDateTime : DateTime.UtcNow,
+        };
+    }
+
     private static List<string> ParseTagList(string? tagList)
     {
         if (string.IsNullOrWhiteSpace(tagList)) return [];

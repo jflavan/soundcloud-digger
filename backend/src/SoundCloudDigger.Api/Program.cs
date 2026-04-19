@@ -39,6 +39,7 @@ builder.Services.AddSingleton<IFeedCache, FeedCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IFeedService, FeedService>();
 builder.Services.AddSingleton<DiscoverRepository>();
+builder.Services.AddSingleton<IDiscoverFeedService, DiscoverFeedService>();
 
 var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://scdigger.localhost:5173";
 builder.Services.AddCors(options =>
