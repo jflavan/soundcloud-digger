@@ -15,6 +15,7 @@ public class AuthController : Controller
     private readonly IFeedCache _feedCache;
     private readonly SessionStore _sessionStore;
     private readonly SqliteConnection _db;
+    private readonly IDiscoverFeedService _discoverService;
 
     public AuthController(
         IConfiguration config,
@@ -23,7 +24,8 @@ public class AuthController : Controller
         IServiceScopeFactory scopeFactory,
         IFeedCache feedCache,
         SessionStore sessionStore,
-        SqliteConnection db)
+        SqliteConnection db,
+        IDiscoverFeedService discoverService)
     {
         _config = config;
         _client = client;
@@ -32,6 +34,7 @@ public class AuthController : Controller
         _feedCache = feedCache;
         _sessionStore = sessionStore;
         _db = db;
+        _discoverService = discoverService;
     }
 
     [HttpGet("/auth/login")]
@@ -110,6 +113,16 @@ ON CONFLICT(urn) DO UPDATE SET
             {
                 // Best effort — feed loading failure is visible to user via loadingComplete staying false
             }
+        });
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                await _discoverService.StartFetchAsync(me.Urn);
+            }
+            catch { }
         });
 
         var frontendUrl = _config["FrontendUrl"] ?? "http://scdigger.localhost:5173";

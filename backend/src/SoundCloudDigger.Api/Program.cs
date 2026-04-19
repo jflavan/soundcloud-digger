@@ -66,6 +66,11 @@ _ = Task.Run(async () =>
     {
         await Task.Delay(TimeSpan.FromMinutes(5));
         var cache = app.Services.GetRequiredService<IFeedCache>();
+        var sessionStore = app.Services.GetRequiredService<SessionStore>();
+        var discoverSvc = app.Services.GetRequiredService<IDiscoverFeedService>();
+        var discoverRepo = app.Services.GetRequiredService<DiscoverRepository>();
+
+        var discoverTtl = TimeSpan.FromMinutes(30);
 
         foreach (var sessionId in cache.GetActiveSessionIds())
         {
@@ -79,6 +84,22 @@ _ = Task.Run(async () =>
             {
                 // Best effort — don't crash the refresh loop
             }
+        }
+
+        // Discover tick: per distinct user, check if stale and fire StartFetchAsync
+        var seenUsers = new HashSet<string>();
+        foreach (var session in sessionStore.GetActiveSessions())
+        {
+            if (!seenUsers.Add(session.UserUrn)) continue;
+            try
+            {
+                var last = discoverRepo.GetDiscoverLastFetchedAt(session.UserUrn);
+                if (last is null || DateTimeOffset.UtcNow - last.Value >= discoverTtl)
+                {
+                    _ = discoverSvc.StartFetchAsync(session.UserUrn);
+                }
+            }
+            catch { }
         }
     }
 });

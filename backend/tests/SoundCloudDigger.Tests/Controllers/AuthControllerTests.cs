@@ -19,6 +19,7 @@ public class AuthControllerTests : IDisposable
     private readonly Mock<ITokenService> _mockTokenService = new();
     private readonly Mock<IServiceScopeFactory> _mockScopeFactory = new();
     private readonly Mock<IFeedCache> _mockFeedCache = new();
+    private readonly Mock<IDiscoverFeedService> _mockDiscoverService = new();
     private readonly SqliteConnection _db;
     private readonly SessionStore _sessionStore;
     private readonly AuthController _sut;
@@ -38,6 +39,10 @@ public class AuthControllerTests : IDisposable
         SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema() });
         _sessionStore = new SessionStore(_db);
 
+        _mockDiscoverService
+            .Setup(d => d.StartFetchAsync(It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
         _sut = new AuthController(
             config,
             _mockClient.Object,
@@ -45,7 +50,8 @@ public class AuthControllerTests : IDisposable
             _mockScopeFactory.Object,
             _mockFeedCache.Object,
             _sessionStore,
-            _db);
+            _db,
+            _mockDiscoverService.Object);
 
         var httpContext = new DefaultHttpContext();
         httpContext.Session = new TestSession();
