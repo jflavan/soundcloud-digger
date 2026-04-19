@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { fetchFeed } from '$lib/api';
 	import { feedTracks, loadingComplete, totalCount } from '$lib/stores/feedStore';
 	import { filteredFeed } from '$lib/stores/filteredFeedStore';
+	import { filteredDiscover } from '$lib/stores/filteredDiscoverFeedStore';
+	import { feedSource } from '$lib/stores/feedSource';
+	import { discoverFeedStore } from '$lib/stores/discoverFeedStore';
+	import FeedTabs from '$lib/components/FeedTabs.svelte';
 	import ControlsBar from '$lib/components/ControlsBar.svelte';
 	import TrackList from '$lib/components/TrackList.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
@@ -11,14 +15,17 @@
 
 	let error = $state('');
 	let refreshing = $state(false);
+	let refreshCooldownSec = $state(0);
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let selectedUrl = $state<string | null>(null);
 	let shuffleEnabled = $state(false);
 	let shuffleQueue = $state<string[]>([]);
 	let shuffleIndex = $state(-1);
 
+	const activeList = $derived($feedSource === 'discover' ? $filteredDiscover : $filteredFeed);
+
 	const selectedTrack = $derived(
-		selectedUrl ? $filteredFeed.find((t) => t.permalinkUrl === selectedUrl) ?? null : null
+		selectedUrl ? activeList.find((t) => t.permalinkUrl === selectedUrl) ?? null : null
 	);
 
 	function selectTrack(url: string | null) {
@@ -41,7 +48,7 @@
 			return;
 		}
 		shuffleEnabled = true;
-		const urls = $filteredFeed
+		const urls = activeList
 			.map((t) => t.permalinkUrl)
 			.filter((u): u is string => u !== null);
 		shuffleQueue = buildShuffleQueue(urls, selectedUrl);
@@ -56,7 +63,7 @@
 	}
 
 	function cycleTrack(direction: number) {
-		const tracks = $filteredFeed.filter((t) => t.permalinkUrl != null);
+		const tracks = activeList.filter((t) => t.permalinkUrl != null);
 		if (tracks.length === 0) return;
 
 		if (shuffleEnabled) {
@@ -89,7 +96,7 @@
 
 	$effect(() => {
 		if (!shuffleEnabled) return;
-		const urls = $filteredFeed
+		const urls = activeList
 			.map((t) => t.permalinkUrl)
 			.filter((u): u is string => u !== null);
 		const currentStillPresent = selectedUrl !== null && urls.includes(selectedUrl);
@@ -135,10 +142,23 @@
 		intervalId = setInterval(pollFeed, 60000);
 	}
 
-	async function refreshFeed() {
-		refreshing = true;
-		await pollFeed();
-		refreshing = false;
+	async function handleRefresh() {
+		if ($feedSource === 'discover') {
+			refreshing = true;
+			const result = await discoverFeedStore.refresh();
+			refreshing = false;
+			if (!result.enqueued && result.retryAfterSec) {
+				refreshCooldownSec = result.retryAfterSec;
+				const cooldownInterval = setInterval(() => {
+					refreshCooldownSec = Math.max(0, refreshCooldownSec - 1);
+					if (refreshCooldownSec === 0) clearInterval(cooldownInterval);
+				}, 1000);
+			}
+		} else {
+			refreshing = true;
+			await pollFeed();
+			refreshing = false;
+		}
 	}
 
 	async function handleLogout() {
@@ -152,7 +172,13 @@
 			else startLoadingPoll();
 		});
 
+		discoverFeedStore.start();
+
 		return () => clearPoll();
+	});
+
+	onDestroy(() => {
+		discoverFeedStore.stop();
 	});
 </script>
 
@@ -162,6 +188,7 @@
 		<button class="logout" onclick={handleLogout}>Logout</button>
 	</div>
 
+	<FeedTabs />
 	<ControlsBar />
 
 	{#if error}
@@ -169,24 +196,28 @@
 			<p>{error}</p>
 			<button onclick={pollFeed}>Retry</button>
 		</div>
-	{:else if !$loadingComplete}
+	{:else if !$loadingComplete && $feedSource === 'feed'}
 		<LoadingIndicator totalCount={$totalCount} />
 	{/if}
 
-	<TrackList tracks={$filteredFeed} {selectedUrl} onselect={selectTrack} />
+	<TrackList tracks={activeList} {selectedUrl} onselect={selectTrack} />
 </div>
 
 <div class="fab-group" class:has-player={selectedTrack !== null}>
 	<button
 		class="fab"
 		class:spinning={refreshing}
-		title="Refresh feed"
-		disabled={refreshing}
-		onclick={refreshFeed}
+		title={refreshCooldownSec > 0 ? `Retry in ${refreshCooldownSec}s` : 'Refresh feed'}
+		disabled={refreshing || refreshCooldownSec > 0}
+		onclick={handleRefresh}
 	>
-		<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-			<path d="M17.65 6.35A7.958 7.958 0 0 0 12 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-		</svg>
+		{#if refreshCooldownSec > 0}
+			<span class="cooldown-label">{refreshCooldownSec}</span>
+		{:else}
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+				<path d="M17.65 6.35A7.958 7.958 0 0 0 12 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+			</svg>
+		{/if}
 	</button>
 	{#if selectedTrack}
 		<button
@@ -326,5 +357,19 @@
 	@keyframes spin {
 		from { transform: rotate(0deg); }
 		to { transform: rotate(360deg); }
+	}
+	.fab:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.fab:disabled:hover {
+		color: #999;
+		border-color: #333;
+		background: rgba(30, 30, 30, 0.9);
+	}
+	.cooldown-label {
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
 	}
 </style>
