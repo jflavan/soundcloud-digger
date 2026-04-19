@@ -4,6 +4,11 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 ## Features
 
+### Two feed sources
+
+- **Feed** — your primary SoundCloud feed (uploads and reposts from artists you follow), exactly as SoundCloud surfaces it
+- **Discover** — consensus-ranked reposts from your follow graph. Surfaces tracks that multiple artists you follow have reposted, with a "Reposts from follows" sort option so the strongest signals rise to the top. Switch between sources via the pill toggle at the top of the feed page
+
 ### Sorting and filtering
 
 - **Sort by likes, plays, reposts, comments, or date** — surface what matters first
@@ -33,10 +38,13 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 ## Architecture
 
-- **Backend:** .NET 10 Web API — handles SoundCloud OAuth, fetches and caches feed data
+- **Backend:** .NET 10 Web API — handles SoundCloud OAuth, fetches the feed, and fans out to per-artist repost fetches for Discover
 - **Frontend:** SvelteKit (Svelte 5) SPA — client-side sorting and filtering
+- **Persistence:** SQLite file at `<LocalAppData>/soundcloud-digger/app.db`. Sessions, OAuth tokens, feed data, and Discover cache all survive app restarts
 
-The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and caches it in memory. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness.
+The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and persists everything to SQLite. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness. Discover runs a 30-minute background refresh of every followed artist's reposts, with a cursor high-water mark so steady-state refreshes are cheap.
+
+> **Note on tokens:** OAuth refresh tokens are currently stored plaintext in the SQLite file (file permissions restrict it to owner-only). At-rest encryption via `Microsoft.AspNetCore.DataProtection` is a planned follow-up.
 
 ## Prerequisites
 
