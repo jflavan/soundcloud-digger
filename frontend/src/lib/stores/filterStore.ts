@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { SortBy, TimeRange, TimeField } from '$lib/types';
+import type { SortBy, DiscoverSortBy, TimeRange, TimeField } from '$lib/types';
 
 export const sortBy = writable<SortBy>('likes');
 export const timeRange = writable<TimeRange>('24h');
@@ -10,3 +10,4 @@ export const excludedGenres = writable<string[]>([]);
 export const durationMin = writable<number | null>(null);
 export const durationMax = writable<number | null>(null);
 export const timeField = writable<TimeField>('feed');
+export const discoverSortBy = writable<DiscoverSortBy>('reposterCount');
