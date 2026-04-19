@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { SortBy, TimeRange, TimeField } from '$lib/types';
-	import { sortBy, timeRange, selectedGenres, excludedGenres, timeField } from '$lib/stores/filterStore';
+	import { sortBy, discoverSortBy, timeRange, selectedGenres, excludedGenres, timeField } from '$lib/stores/filterStore';
 	import { availableGenres } from '$lib/stores/filteredFeedStore';
+	import { availableDiscoverGenres } from '$lib/stores/filteredDiscoverFeedStore';
+	import { feedSource } from '$lib/stores/feedSource';
 	import DurationRangeSlider from './DurationRangeSlider.svelte';
 
 	let dropdownOpen = $state(false);
@@ -21,6 +23,18 @@
 		{ value: '30d', label: '30d' },
 		{ value: 'all', label: 'All' },
 	];
+
+	const activeSortValue = $derived($feedSource === 'discover' ? $discoverSortBy : $sortBy);
+
+	function setSort(value: string) {
+		if ($feedSource === 'discover') {
+			discoverSortBy.set(value as any);
+		} else {
+			sortBy.set(value as any);
+		}
+	}
+
+	const activeAvailableGenres = $derived($feedSource === 'discover' ? $availableDiscoverGenres : $availableGenres);
 
 	function toggleGenre(genre: string) {
 		selectedGenres.update((current) => {
@@ -44,11 +58,20 @@
 <div class="controls-bar">
 	<div class="control-group">
 		<span class="label">Sort:</span>
+		{#if $feedSource === 'discover'}
+			<button
+				class="toggle"
+				class:active={activeSortValue === 'reposterCount'}
+				onclick={() => setSort('reposterCount')}
+			>
+				Reposts from follows
+			</button>
+		{/if}
 		{#each sortOptions as opt}
 			<button
 				class="toggle"
-				class:active={$sortBy === opt.value}
-				onclick={() => sortBy.set(opt.value)}
+				class:active={activeSortValue === opt.value}
+				onclick={() => setSort(opt.value)}
 			>
 				{opt.label}
 			</button>
@@ -87,7 +110,7 @@
 		<DurationRangeSlider />
 	</div>
 
-	{#if $availableGenres.length > 0}
+	{#if activeAvailableGenres.length > 0}
 		<div class="control-group genre-group">
 			<span class="label">Genre:</span>
 			<div class="genre-dropdown">
@@ -98,7 +121,7 @@
 				</button>
 				{#if dropdownOpen}
 					<div class="dropdown-menu">
-						{#each $availableGenres as genre}
+						{#each activeAvailableGenres as genre}
 							<label class="dropdown-item">
 								<input
 									type="checkbox"
@@ -123,7 +146,7 @@
 				</button>
 				{#if excludeDropdownOpen}
 					<div class="dropdown-menu">
-						{#each $availableGenres as genre}
+						{#each activeAvailableGenres as genre}
 							<label class="dropdown-item">
 								<input
 									type="checkbox"

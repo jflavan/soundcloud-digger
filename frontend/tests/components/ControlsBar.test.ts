@@ -4,6 +4,7 @@ import { get } from 'svelte/store';
 import ControlsBar from '$lib/components/ControlsBar.svelte';
 import {
 	sortBy,
+	discoverSortBy,
 	timeRange,
 	timeField,
 	selectedGenres,
@@ -12,6 +13,7 @@ import {
 	durationMax,
 } from '$lib/stores/filterStore';
 import { feedTracks } from '$lib/stores/feedStore';
+import { feedSource } from '$lib/stores/feedSource';
 import type { FeedTrack } from '$lib/types';
 
 function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
@@ -37,7 +39,9 @@ function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
 
 describe('ControlsBar', () => {
 	beforeEach(() => {
+		feedSource.set('feed');
 		sortBy.set('likes');
+		discoverSortBy.set('reposterCount');
 		timeRange.set('24h');
 		timeField.set('feed');
 		selectedGenres.set([]);
@@ -123,5 +127,44 @@ describe('ControlsBar', () => {
 		await fireEvent.click(screen.getByText('1 excluded'));
 		await fireEvent.click(screen.getByText('Pop'));
 		expect(get(excludedGenres)).toEqual([]);
+	});
+});
+
+describe('ControlsBar — Discover mode', () => {
+	beforeEach(() => {
+		feedSource.set('feed');
+		sortBy.set('likes');
+		discoverSortBy.set('reposterCount');
+		feedTracks.set([]);
+	});
+
+	it('shows "Reposts from follows" sort option when on Discover', () => {
+		feedSource.set('discover');
+		render(ControlsBar);
+		expect(screen.getByText(/reposts from follows/i)).toBeTruthy();
+	});
+
+	it('hides "Reposts from follows" on primary feed', () => {
+		feedSource.set('feed');
+		render(ControlsBar);
+		expect(screen.queryByText(/reposts from follows/i)).toBeNull();
+	});
+
+	it('clicking a sort button on Discover writes to discoverSortBy', async () => {
+		feedSource.set('discover');
+		render(ControlsBar);
+		await fireEvent.click(screen.getByText(/^likes$/i));
+		expect(get(discoverSortBy)).toBe('likes');
+		expect(get(sortBy)).toBe('likes'); // untouched from default setup
+	});
+
+	it('clicking a sort button on Feed writes to sortBy', async () => {
+		feedSource.set('feed');
+		sortBy.set('likes');
+		discoverSortBy.set('reposterCount');
+		render(ControlsBar);
+		await fireEvent.click(screen.getByText(/^plays$/i));
+		expect(get(sortBy)).toBe('plays');
+		expect(get(discoverSortBy)).toBe('reposterCount'); // unchanged
 	});
 });
