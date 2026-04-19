@@ -7,4 +7,5 @@ public interface ITokenService
     void UpdateTokens(string sessionId, string accessToken, string refreshToken, int expiresIn);
     void Remove(string sessionId);
     bool IsExpired(string sessionId);
+    Task<string?> GetValidAccessTokenAsync(string userUrn);
 }

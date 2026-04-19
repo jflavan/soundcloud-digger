@@ -1,4 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services;
+using SoundCloudDigger.Api.Services.Persistence;
+using SoundCloudDigger.Api.Services.Persistence.Migrations;
 
 namespace SoundCloudDigger.Tests.Services;
 
@@ -54,5 +59,90 @@ public class TokenServiceTests
     {
         _sut.Store("session1", "access_abc", "refresh_xyz", expiresIn: 3600);
         Assert.False(_sut.IsExpired("session1"));
+    }
+
+    // ── GetValidAccessTokenAsync tests ────────────────────────────────────────
+
+    [Fact]
+    public async Task GetValidAccessTokenAsync_ReturnsExisting_WhenNotExpired()
+    {
+        using var conn = Db.OpenInMemory();
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        var store = new SessionStore(conn);
+        store.Create("s1", "u1", "goodtoken", "rt", DateTimeOffset.UtcNow.AddMinutes(30));
+
+        var client = new Mock<ISoundCloudClient>();
+        var svc = CreateTokenService(store, client.Object);
+
+        var token = await svc.GetValidAccessTokenAsync("u1");
+
+        Assert.Equal("goodtoken", token);
+        client.Verify(c => c.RefreshAccessToken(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetValidAccessTokenAsync_RefreshesWhenExpired()
+    {
+        using var conn = Db.OpenInMemory();
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        var store = new SessionStore(conn);
+        store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
+
+        var client = new Mock<ISoundCloudClient>();
+        client.Setup(c => c.RefreshAccessToken("rt"))
+            .ReturnsAsync(new SoundCloudTokenResponse
+            {
+                AccessToken = "fresh", RefreshToken = "rt2", ExpiresIn = 3600,
+            });
+
+        var svc = CreateTokenService(store, client.Object);
+
+        var token = await svc.GetValidAccessTokenAsync("u1");
+
+        Assert.Equal("fresh", token);
+        Assert.Equal("fresh", store.TryGet("s1")!.AccessToken);
+    }
+
+    [Fact]
+    public async Task GetValidAccessTokenAsync_ReturnsNullWhenNoSession()
+    {
+        using var conn = Db.OpenInMemory();
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        var store = new SessionStore(conn);
+
+        var client = new Mock<ISoundCloudClient>();
+        var svc = CreateTokenService(store, client.Object);
+
+        var token = await svc.GetValidAccessTokenAsync("unknown-user");
+
+        Assert.Null(token);
+    }
+
+    [Fact]
+    public async Task GetValidAccessTokenAsync_ReturnsNullWhenRefreshFails()
+    {
+        using var conn = Db.OpenInMemory();
+        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+        var store = new SessionStore(conn);
+        store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
+
+        var client = new Mock<ISoundCloudClient>();
+        client.Setup(c => c.RefreshAccessToken(It.IsAny<string>()))
+            .ThrowsAsync(new HttpRequestException("revoked"));
+
+        var svc = CreateTokenService(store, client.Object);
+
+        var token = await svc.GetValidAccessTokenAsync("u1");
+
+        Assert.Null(token);
+    }
+
+    private static TokenService CreateTokenService(SessionStore store, ISoundCloudClient client)
+    {
+        // Build a minimal IServiceProvider that can resolve ISoundCloudClient.
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(client);
+        var sp = services.BuildServiceProvider();
+        return new TokenService(store, sp);
     }
 }

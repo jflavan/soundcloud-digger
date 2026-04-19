@@ -1,5 +1,7 @@
 using SoundCloudDigger.Api;
 using SoundCloudDigger.Api.Services;
+using SoundCloudDigger.Api.Services.Persistence;
+using SoundCloudDigger.Api.Services.Persistence.Migrations;
 
 EnvFileLoader.Load();
 
@@ -24,6 +26,14 @@ builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>()
         EnableMultipleHttp2Connections = true,
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
     });
+builder.Services.AddSingleton<Microsoft.Data.Sqlite.SqliteConnection>(_ =>
+{
+    var conn = Db.Open();
+    SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema() });
+    return conn;
+});
+
+builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<IFeedCache, FeedCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IFeedService, FeedService>();
