@@ -1,20 +1,31 @@
+using Microsoft.Data.Sqlite;
 using Moq;
 using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services;
+using SoundCloudDigger.Api.Services.Persistence;
+using SoundCloudDigger.Api.Services.Persistence.Migrations;
 
 namespace SoundCloudDigger.Tests.Services;
 
-public class FeedServiceTests
+public class FeedServiceTests : IDisposable
 {
     private readonly Mock<ISoundCloudClient> _mockClient = new();
-    private readonly FeedCache _cache = new();
     private readonly Mock<ITokenService> _mockTokenService = new();
+    private readonly SqliteConnection _db;
+    private readonly FeedCache _cache;
     private readonly FeedService _sut;
 
     public FeedServiceTests()
     {
+        _db = Db.OpenInMemory();
+        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema() });
+        var store = new SessionStore(_db);
+        store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
+        _cache = new FeedCache(_db, store);
         _sut = new FeedService(_mockClient.Object, _cache, _mockTokenService.Object);
     }
+
+    public void Dispose() => _db.Dispose();
 
     private static SoundCloudActivitiesResponse MakeResponse(
         List<(string title, DateTime createdAt, int likes)> tracks,
@@ -32,6 +43,7 @@ public class FeedServiceTests
                     CreatedAt = t.createdAt,
                     FavoritingsCount = t.likes,
                     User = new SoundCloudUser { Username = "artist" },
+                    PermalinkUrl = $"https://soundcloud.com/artist/{t.title.ToLower().Replace(" ", "-")}",
                 },
             }).ToList(),
             NextHref = nextHref,
