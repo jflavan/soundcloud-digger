@@ -213,6 +213,36 @@ describe('discoverFeedStore', () => {
 		expect(result.error).toBe('HTTP 503');
 	});
 
+	it('stop() without start() is a no-op', async () => {
+		const { discoverFeedStore } = await loadStore();
+		// Should not throw
+		discoverFeedStore.stop();
+		discoverFeedStore.stop();
+	});
+
+	it('tick error with non-Error thrown value falls back to String(e)', async () => {
+		const { discoverFeedStore } = await loadStore();
+
+		(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('plain string');
+
+		discoverFeedStore.start();
+		await flushMicrotasks();
+
+		expect(get(discoverFeedStore).error).toBe('plain string');
+		discoverFeedStore.stop();
+	});
+
+	it('refresh() with non-Error thrown value falls back to String(e)', async () => {
+		const { discoverFeedStore } = await loadStore();
+
+		(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('boom');
+
+		const result = await discoverFeedStore.refresh();
+
+		expect(result.enqueued).toBe(false);
+		expect(result.error).toBe('boom');
+	});
+
 	it('start() is idempotent — calling twice does not double-poll', async () => {
 		const { discoverFeedStore } = await loadStore();
 
