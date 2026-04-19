@@ -108,8 +108,23 @@ public class SoundCloudTrack
 
 public class SoundCloudUser
 {
+    [JsonPropertyName("urn")]
+    public string Urn { get; set; } = "";
+
     [JsonPropertyName("username")]
     public string Username { get; set; } = "";
+
+    [JsonPropertyName("permalink_url")]
+    public string PermalinkUrl { get; set; } = "";
+}
+
+public class SoundCloudUsersResponse
+{
+    [JsonPropertyName("collection")]
+    public List<SoundCloudUser> Collection { get; set; } = new();
+
+    [JsonPropertyName("next_href")]
+    public string? NextHref { get; set; }
 }
 
 public class SoundCloudTokenResponse

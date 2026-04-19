@@ -15,7 +15,15 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromHours(2);
 });
 
-builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>();
+builder.Services.AddSingleton<SoundCloudRateLimiter>(_ => new SoundCloudRateLimiter(maxConcurrent: 6));
+builder.Services.AddSingleton<RetryPolicy>(_ => new RetryPolicy(maxAttempts: 3, baseDelay: TimeSpan.FromSeconds(1)));
+
+builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>()
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        EnableMultipleHttp2Connections = true,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    });
 builder.Services.AddSingleton<IFeedCache, FeedCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IFeedService, FeedService>();

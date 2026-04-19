@@ -8,4 +8,6 @@ public interface ISoundCloudClient
     Task<SoundCloudTokenResponse> RefreshAccessToken(string refreshToken);
     Task<SoundCloudActivitiesResponse> GetFeedTracks(string accessToken, int limit = 200, string? nextHref = null);
     Task SignOut(string accessToken);
+    Task<SoundCloudUsersResponse> GetFollowings(string accessToken, string? nextHref = null);
+    Task<SoundCloudRepostsResponse> GetUserReposts(string userUrn, string accessToken, string? nextHref = null);
 }
