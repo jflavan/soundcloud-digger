@@ -34,6 +34,7 @@ builder.Services.AddSingleton<Microsoft.Data.Sqlite.SqliteConnection>(_ =>
 });
 
 builder.Services.AddSingleton<SessionStore>();
+builder.Services.AddSingleton<IFollowingsService, FollowingsService>();
 builder.Services.AddSingleton<IFeedCache, FeedCache>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IFeedService, FeedService>();
