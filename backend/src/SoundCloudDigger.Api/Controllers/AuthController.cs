@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Helpers;
 using SoundCloudDigger.Api.Services;
+using SoundCloudDigger.Api.Services.Persistence;
 
 namespace SoundCloudDigger.Api.Controllers;
 
@@ -15,6 +16,7 @@ public class AuthController : Controller
     private readonly IFeedCache _feedCache;
     private readonly SessionStore _sessionStore;
     private readonly SqliteConnection _db;
+    private readonly DbLock _dbLock;
     private readonly IDiscoverFeedService _discoverService;
 
     public AuthController(
@@ -25,6 +27,7 @@ public class AuthController : Controller
         IFeedCache feedCache,
         SessionStore sessionStore,
         SqliteConnection db,
+        DbLock dbLock,
         IDiscoverFeedService discoverService)
     {
         _config = config;
@@ -34,6 +37,7 @@ public class AuthController : Controller
         _feedCache = feedCache;
         _sessionStore = sessionStore;
         _db = db;
+        _dbLock = dbLock;
         _discoverService = discoverService;
     }
 
@@ -71,6 +75,7 @@ public class AuthController : Controller
         var me = await _client.GetMe(tokenResponse.AccessToken);
 
         // Upsert user row
+        using (var _ = _dbLock.Acquire())
         using (var cmd = _db.CreateCommand())
         {
             cmd.CommandText = @"

@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { replaceState } from '$app/navigation';
 
 export type FeedSource = 'feed' | 'discover';
 
@@ -13,7 +14,8 @@ function writeToUrl(source: FeedSource) {
 	const url = new URL(window.location.href);
 	if (source === 'feed') url.searchParams.delete('source');
 	else url.searchParams.set('source', source);
-	window.history.replaceState({}, '', url.toString());
+	if (url.toString() === window.location.href) return;
+	replaceState(url, {});
 }
 
 function createFeedSource() {

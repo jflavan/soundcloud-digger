@@ -8,10 +8,12 @@ namespace SoundCloudDigger.Api.Controllers;
 public class FeedController : Controller
 {
     private readonly IFeedCache _cache;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public FeedController(IFeedCache cache)
+    public FeedController(IFeedCache cache, IServiceScopeFactory scopeFactory)
     {
         _cache = cache;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpGet("/api/feed")]
@@ -23,6 +25,23 @@ public class FeedController : Controller
 
         var tracks = _cache.GetTracks(sessionId);
         var loadingComplete = _cache.IsLoadingComplete(sessionId);
+
+        // Self-heal: if the session exists but never finished loading (e.g. the fetch
+        // crashed before marking complete), kick it off again. Ignored if already running.
+        if (!loadingComplete)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var feedService = scope.ServiceProvider.GetRequiredService<IFeedService>();
+                    if (feedService.IsFetchInFlight(sessionId)) return;
+                    await feedService.StartFetchAsync(sessionId);
+                }
+                catch { }
+            });
+        }
 
         return Ok(new FeedResponse
         {

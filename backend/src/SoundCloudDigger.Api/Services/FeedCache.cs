@@ -2,6 +2,7 @@ using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Models;
+using SoundCloudDigger.Api.Services.Persistence;
 
 namespace SoundCloudDigger.Api.Services;
 
@@ -9,13 +10,14 @@ public class FeedCache : IFeedCache
 {
     private readonly SqliteConnection _conn;
     private readonly SessionStore _sessionStore;
-    private readonly object _writeLock = new();
+    private readonly DbLock _dbLock;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public FeedCache(SqliteConnection conn, SessionStore sessionStore)
+    public FeedCache(SqliteConnection conn, SessionStore sessionStore, DbLock? dbLock = null)
     {
         _conn = conn;
         _sessionStore = sessionStore;
+        _dbLock = dbLock ?? new DbLock();
     }
 
     public List<FeedTrack> GetTracks(string sessionId)
@@ -23,6 +25,7 @@ public class FeedCache : IFeedCache
         var session = _sessionStore.TryGet(sessionId);
         if (session is null) return [];
 
+        using var _ = _dbLock.Acquire();
         var rows = _conn.Query<(string PayloadJson, long AppearedAt)>(@"
 SELECT t.payload_json AS PayloadJson, ft.appeared_at AS AppearedAt
 FROM feed_tracks ft
@@ -46,28 +49,26 @@ ORDER BY ft.appeared_at DESC;", new { userUrn = session.UserUrn });
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        lock (_writeLock)
+        using var _ = _dbLock.Acquire();
+        using var tx = _conn.BeginTransaction();
+        foreach (var track in tracks)
         {
-            using var tx = _conn.BeginTransaction();
-            foreach (var track in tracks)
-            {
-                var urn = track.PermalinkUrl ?? "";
-                var payloadJson = JsonSerializer.Serialize(track, Json);
-                var appearedAt = new DateTimeOffset(track.AppearedAt, TimeSpan.Zero).ToUnixTimeSeconds();
+            var urn = track.PermalinkUrl ?? "";
+            var payloadJson = JsonSerializer.Serialize(track, Json);
+            var appearedAt = new DateTimeOffset(track.AppearedAt, TimeSpan.Zero).ToUnixTimeSeconds();
 
-                _conn.Execute(@"
+            _conn.Execute(@"
 INSERT INTO tracks (urn, payload_json, updated_at)
 VALUES (@urn, @payloadJson, @now)
 ON CONFLICT(urn) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at;",
-                    new { urn, payloadJson, now }, tx);
+                new { urn, payloadJson, now }, tx);
 
-                _conn.Execute(@"
+            _conn.Execute(@"
 INSERT OR IGNORE INTO feed_tracks (user_urn, track_urn, appeared_at, activity_type)
 VALUES (@userUrn, @urn, @appearedAt, @activityType);",
-                    new { userUrn = session.UserUrn, urn, appearedAt, activityType = track.ActivityType }, tx);
-            }
-            tx.Commit();
+                new { userUrn = session.UserUrn, urn, appearedAt, activityType = track.ActivityType }, tx);
         }
+        tx.Commit();
     }
 
     public bool IsLoadingComplete(string sessionId)
@@ -75,6 +76,7 @@ VALUES (@userUrn, @urn, @appearedAt, @activityType);",
         var session = _sessionStore.TryGet(sessionId);
         if (session is null) return false;
 
+        using var _ = _dbLock.Acquire();
         var value = _conn.ExecuteScalar<long?>(@"
 SELECT feed_last_fetched_at FROM user_fetch_state WHERE user_urn = @userUrn;",
             new { userUrn = session.UserUrn });
@@ -89,14 +91,12 @@ SELECT feed_last_fetched_at FROM user_fetch_state WHERE user_urn = @userUrn;",
 
         var now = complete ? (long?)DateTimeOffset.UtcNow.ToUnixTimeSeconds() : null;
 
-        lock (_writeLock)
-        {
-            _conn.Execute(@"
+        using var _ = _dbLock.Acquire();
+        _conn.Execute(@"
 INSERT INTO user_fetch_state (user_urn, feed_last_fetched_at)
 VALUES (@userUrn, @now)
 ON CONFLICT(user_urn) DO UPDATE SET feed_last_fetched_at = excluded.feed_last_fetched_at;",
-                new { userUrn = session.UserUrn, now });
-        }
+            new { userUrn = session.UserUrn, now });
     }
 
     public void Clear(string sessionId)
@@ -104,18 +104,16 @@ ON CONFLICT(user_urn) DO UPDATE SET feed_last_fetched_at = excluded.feed_last_fe
         var session = _sessionStore.TryGet(sessionId);
         if (session is null) return;
 
-        lock (_writeLock)
-        {
-            using var tx = _conn.BeginTransaction();
-            _conn.Execute("DELETE FROM feed_tracks WHERE user_urn = @userUrn;",
-                new { userUrn = session.UserUrn }, tx);
-            _conn.Execute(@"
+        using var _ = _dbLock.Acquire();
+        using var tx = _conn.BeginTransaction();
+        _conn.Execute("DELETE FROM feed_tracks WHERE user_urn = @userUrn;",
+            new { userUrn = session.UserUrn }, tx);
+        _conn.Execute(@"
 INSERT INTO user_fetch_state (user_urn, feed_last_fetched_at)
 VALUES (@userUrn, NULL)
 ON CONFLICT(user_urn) DO UPDATE SET feed_last_fetched_at = NULL;",
-                new { userUrn = session.UserUrn }, tx);
-            tx.Commit();
-        }
+            new { userUrn = session.UserUrn }, tx);
+        tx.Commit();
     }
 
     public List<string> GetActiveSessionIds()

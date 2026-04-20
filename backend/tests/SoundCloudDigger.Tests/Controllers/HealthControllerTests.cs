@@ -20,7 +20,7 @@ public class HealthControllerTests
     private static HealthController CreateController(
         Microsoft.Data.Sqlite.SqliteConnection conn, IPAddress? remoteIp)
     {
-        var controller = new HealthController(conn);
+        var controller = new HealthController(conn, new DbLock());
         var httpContext = new DefaultHttpContext();
         httpContext.Connection.RemoteIpAddress = remoteIp;
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };

@@ -58,12 +58,12 @@ VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
             {
                 Collection = new()
                 {
-                    new SoundCloudRepost { CreatedAt = "2026-04-18T00:00:00Z",
-                        Track = new SoundCloudTrack { PermalinkUrl = "trackNew", Title = "New" } },
-                    new SoundCloudRepost { CreatedAt = "2026-04-17T00:00:00Z",
-                        Track = new SoundCloudTrack { PermalinkUrl = "trackKnown", Title = "Known" } },
-                    new SoundCloudRepost { CreatedAt = "2026-04-16T00:00:00Z",
-                        Track = new SoundCloudTrack { PermalinkUrl = "trackOlder", Title = "Older" } },
+                    new SoundCloudTrack { PermalinkUrl = "trackNew", Title = "New",
+                        CreatedAt = new DateTime(2026, 4, 18, 0, 0, 0, DateTimeKind.Utc) },
+                    new SoundCloudTrack { PermalinkUrl = "trackKnown", Title = "Known",
+                        CreatedAt = new DateTime(2026, 4, 17, 0, 0, 0, DateTimeKind.Utc) },
+                    new SoundCloudTrack { PermalinkUrl = "trackOlder", Title = "Older",
+                        CreatedAt = new DateTime(2026, 4, 16, 0, 0, 0, DateTimeKind.Utc) },
                 },
                 NextHref = "page2",
             });
@@ -144,8 +144,8 @@ VALUES ('trackUnreposted', '{}', @t), ('trackStillUp', '{}', @t);",
             {
                 Collection = new()
                 {
-                    new SoundCloudRepost { CreatedAt = "2026-04-18T00:00:00Z",
-                        Track = new SoundCloudTrack { PermalinkUrl = "trackStillUp", Title = "Still up" } },
+                    new SoundCloudTrack { PermalinkUrl = "trackStillUp", Title = "Still up",
+                        CreatedAt = new DateTime(2026, 4, 18, 0, 0, 0, DateTimeKind.Utc) },
                 },
                 NextHref = null,
             });

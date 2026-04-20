@@ -1,9 +1,22 @@
 <script lang="ts">
-	let { totalCount }: { totalCount: number } = $props();
+	let {
+		totalCount,
+		label = 'Loading your feed...',
+		progress = null,
+	}: {
+		totalCount: number;
+		label?: string;
+		progress?: number | null;
+	} = $props();
 </script>
 
 <div class="loading">
-	<p><span class="spinner"></span>Loading your feed... {totalCount} tracks fetched</p>
+	<p>
+		<span class="spinner"></span>
+		{label}
+		{#if progress !== null && progress > 0} {progress}% ·{/if}
+		{totalCount} tracks fetched
+	</p>
 </div>
 
 <style>

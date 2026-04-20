@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Models;
+using SoundCloudDigger.Api.Services.Persistence;
 
 namespace SoundCloudDigger.Api.Services;
 
@@ -10,10 +11,12 @@ public class FollowingsService : IFollowingsService
     private readonly SqliteConnection _conn;
     private readonly ISoundCloudClient _client;
     private readonly ITokenService _tokens;
+    private readonly DbLock _dbLock;
 
-    public FollowingsService(SqliteConnection conn, ISoundCloudClient client, ITokenService tokens)
+    public FollowingsService(SqliteConnection conn, ISoundCloudClient client, ITokenService tokens, DbLock? dbLock = null)
     {
         _conn = conn; _client = client; _tokens = tokens;
+        _dbLock = dbLock ?? new DbLock();
     }
 
     public async Task<IReadOnlyList<string>> EnsureAsync(string userUrn)
@@ -38,6 +41,7 @@ public class FollowingsService : IFollowingsService
 
     private bool IsStale(string userUrn)
     {
+        using var _ = _dbLock.Acquire();
         var oldest = _conn.ExecuteScalar<long?>(
             "SELECT MIN(fetched_at) FROM followings WHERE user_urn=@u;",
             new { u = userUrn });
@@ -46,13 +50,17 @@ public class FollowingsService : IFollowingsService
     }
 
     private IReadOnlyList<string> LoadCached(string userUrn)
-        => _conn.Query<string>(
+    {
+        using var _ = _dbLock.Acquire();
+        return _conn.Query<string>(
             "SELECT followed_urn FROM followings WHERE user_urn=@u;",
             new { u = userUrn }).ToList();
+    }
 
     private void PersistFollowings(string userUrn, IEnumerable<SoundCloudUser> users)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        using var _ = _dbLock.Acquire();
         using var tx = _conn.BeginTransaction();
         _conn.Execute(
             "DELETE FROM followings WHERE user_urn=@u;",

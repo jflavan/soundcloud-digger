@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using SoundCloudDigger.Api.Controllers;
 using SoundCloudDigger.Api.Models;
@@ -14,7 +15,7 @@ public class FeedControllerTests
 
     public FeedControllerTests()
     {
-        _sut = new FeedController(_mockCache.Object);
+        _sut = new FeedController(_mockCache.Object, Mock.Of<IServiceScopeFactory>());
 
         var httpContext = new DefaultHttpContext();
         httpContext.Session = new TestSession();

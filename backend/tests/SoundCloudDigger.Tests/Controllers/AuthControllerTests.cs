@@ -51,6 +51,7 @@ public class AuthControllerTests : IDisposable
             _mockFeedCache.Object,
             _sessionStore,
             _db,
+            new DbLock(),
             _mockDiscoverService.Object);
 
         var httpContext = new DefaultHttpContext();

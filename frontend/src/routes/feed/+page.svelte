@@ -133,6 +133,7 @@
 			if (complete) {
 				clearPoll();
 				startRefreshPoll();
+				discoverFeedStore.start();
 			}
 		}, 2000);
 	}
@@ -168,11 +169,13 @@
 
 	onMount(() => {
 		pollFeed().then((complete) => {
-			if (complete) startRefreshPoll();
-			else startLoadingPoll();
+			if (complete) {
+				startRefreshPoll();
+				discoverFeedStore.start();
+			} else {
+				startLoadingPoll();
+			}
 		});
-
-		discoverFeedStore.start();
 
 		return () => clearPoll();
 	});
@@ -198,6 +201,12 @@
 		</div>
 	{:else if !$loadingComplete && $feedSource === 'feed'}
 		<LoadingIndicator totalCount={$totalCount} />
+	{:else if $feedSource === 'discover' && !$discoverFeedStore.loadingComplete}
+		<LoadingIndicator
+			label="Digging your Discover feed..."
+			totalCount={$discoverFeedStore.totalCount}
+			progress={Math.round($discoverFeedStore.progress * 100)}
+		/>
 	{/if}
 
 	<TrackList tracks={activeList} {selectedUrl} onselect={selectTrack} />

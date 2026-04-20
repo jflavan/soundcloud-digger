@@ -2,6 +2,7 @@ using System.Net;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
+using SoundCloudDigger.Api.Services.Persistence;
 
 namespace SoundCloudDigger.Api.Controllers;
 
@@ -18,10 +19,12 @@ public record MetricsResponse(
 public class HealthController : Controller
 {
     private readonly SqliteConnection _conn;
+    private readonly DbLock _dbLock;
 
-    public HealthController(SqliteConnection conn)
+    public HealthController(SqliteConnection conn, DbLock dbLock)
     {
         _conn = conn;
+        _dbLock = dbLock;
     }
 
     [HttpGet("/api/health/metrics")]
@@ -31,6 +34,7 @@ public class HealthController : Controller
         if (ip is null || (!IPAddress.IsLoopback(ip)))
             return NotFound();
 
+        using var _ = _dbLock.Acquire();
         return Ok(new MetricsResponse(
             Sessions: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM sessions;"),
             Users: _conn.ExecuteScalar<long>("SELECT COUNT(*) FROM users;"),

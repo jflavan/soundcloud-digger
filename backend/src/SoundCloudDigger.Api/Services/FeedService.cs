@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Microsoft.Extensions.Logging;
 using SoundCloudDigger.Api.Models;
 
 namespace SoundCloudDigger.Api.Services;
@@ -9,59 +10,79 @@ public class FeedService : IFeedService
     private readonly ISoundCloudClient _client;
     private readonly IFeedCache _cache;
     private readonly ITokenService _tokenService;
+    private readonly SessionStore? _sessionStore;
+    private readonly ILogger<FeedService>? _logger;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _refreshLocks = new();
+    private static readonly ConcurrentDictionary<string, byte> _inFlight = new();
     private const int MaxTracks = 10_000;
     private const int MaxRetries = 3;
 
-    public FeedService(ISoundCloudClient client, IFeedCache cache, ITokenService tokenService)
+    public FeedService(ISoundCloudClient client, IFeedCache cache, ITokenService tokenService,
+        SessionStore? sessionStore = null, ILogger<FeedService>? logger = null)
     {
         _client = client;
         _cache = cache;
         _tokenService = tokenService;
+        _sessionStore = sessionStore;
+        _logger = logger;
     }
 
     public async Task StartFetchAsync(string sessionId)
     {
-        var accessToken = await GetValidAccessToken(sessionId);
-        if (accessToken is null) return;
+        if (!_inFlight.TryAdd(sessionId, 0)) return;
 
-        _cache.Clear(sessionId);
-        var cutoff = DateTime.UtcNow.AddDays(-30);
-        string? nextHref = null;
-        var totalFetched = 0;
-        var tokenHolder = new TokenHolder(accessToken);
-
-        while (totalFetched < MaxTracks)
+        try
         {
-            SoundCloudActivitiesResponse response;
-            try
+            var accessToken = await GetValidAccessToken(sessionId);
+            if (accessToken is null) return;
+
+            _cache.Clear(sessionId);
+            var cutoff = DateTime.UtcNow.AddDays(-30);
+            string? nextHref = null;
+            var totalFetched = 0;
+            var tokenHolder = new TokenHolder(accessToken);
+
+            while (totalFetched < MaxTracks)
             {
-                response = await FetchWithRetryAndRefresh(sessionId, tokenHolder, nextHref);
+                SoundCloudActivitiesResponse response;
+                try
+                {
+                    response = await FetchWithRetryAndRefresh(sessionId, tokenHolder, nextHref);
+                }
+                catch (HttpRequestException)
+                {
+                    break;
+                }
+
+                if (response.Collection.Count == 0) break;
+
+                var tracks = response.Collection
+                    .Where(a => a.Origin is not null)
+                    .Select(FeedTrack.FromActivity)
+                    .ToList();
+
+                _cache.AddTracks(sessionId, tracks);
+                totalFetched += tracks.Count;
+
+                var allOlderThanCutoff = response.Collection
+                    .All(a => a.CreatedAt < cutoff);
+
+                if (allOlderThanCutoff || response.NextHref is null) break;
+
+                nextHref = response.NextHref;
             }
-            catch (HttpRequestException)
-            {
-                break;
-            }
-
-            if (response.Collection.Count == 0) break;
-
-            var tracks = response.Collection
-                .Where(a => a.Origin is not null)
-                .Select(FeedTrack.FromActivity)
-                .ToList();
-
-            _cache.AddTracks(sessionId, tracks);
-            totalFetched += tracks.Count;
-
-            var allOlderThanCutoff = response.Collection
-                .All(a => a.CreatedAt < cutoff);
-
-            if (allOlderThanCutoff || response.NextHref is null) break;
-
-            nextHref = response.NextHref;
         }
-
-        _cache.SetLoadingComplete(sessionId, true);
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "FeedService.StartFetchAsync failed for session {SessionId}", sessionId);
+        }
+        finally
+        {
+            // Always mark complete so the UI isn't wedged on an unexpected failure —
+            // partial results are better than a perpetual loading spinner.
+            try { _cache.SetLoadingComplete(sessionId, true); } catch { }
+            _inFlight.TryRemove(sessionId, out _);
+        }
     }
 
     public async Task RefreshAsync(string sessionId)
@@ -111,16 +132,30 @@ public class FeedService : IFeedService
         }
     }
 
+    public bool IsFetchInFlight(string sessionId) => _inFlight.ContainsKey(sessionId);
+
     private async Task<string?> GetValidAccessToken(string sessionId)
     {
+        // Prefer the in-memory TokenService when populated (set on login).
         if (!_tokenService.IsExpired(sessionId))
             return _tokenService.Get(sessionId)?.AccessToken;
+
+        // Fall back to the persistent SessionStore-backed path so fetches survive
+        // backend restarts — otherwise every restart wedges the feed until re-login.
+        if (_sessionStore is not null)
+        {
+            var session = _sessionStore.TryGet(sessionId);
+            if (session is not null)
+            {
+                var token = await _tokenService.GetValidAccessTokenAsync(session.UserUrn);
+                if (token is not null) return token;
+            }
+        }
 
         var semaphore = _refreshLocks.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync();
         try
         {
-            // Re-check after acquiring lock — another caller may have already refreshed
             if (!_tokenService.IsExpired(sessionId))
                 return _tokenService.Get(sessionId)?.AccessToken;
 

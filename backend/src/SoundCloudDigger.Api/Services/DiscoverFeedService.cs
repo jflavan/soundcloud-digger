@@ -85,27 +85,35 @@ public class DiscoverFeedService : IDiscoverFeedService
             string? newCursor = null;
             var stopWalking = false;
             var seenUrns = doFullReset ? new List<string>() : null;
+            // Observation time — SoundCloud's reposts API has no per-repost timestamp.
+            // INSERT OR IGNORE preserves this value across subsequent walks, so each
+            // (artist, track) pair keeps its first-seen time. Incremental walks stop
+            // at the cursor, so only genuinely new reposts get a current timestamp.
+            var observedAt = DateTimeOffset.UtcNow;
+            var position = 0;
 
             do
             {
                 var page = await _client.GetUserReposts(artistUrn, accessToken, next);
-                foreach (var repost in page.Collection)
+                foreach (var track in page.Collection)
                 {
-                    if (repost.Track is null) continue;
-                    if (!doFullReset && repost.Track.PermalinkUrl == cursor)
+                    if (track.PermalinkUrl is null) continue;
+                    if (!doFullReset && track.PermalinkUrl == cursor)
                     {
                         stopWalking = true;
                         break;
                     }
 
-                    var feedTrack = FeedTrack.FromTrack(repost.Track, repost.CreatedAt);
-                    if (!DateTimeOffset.TryParse(repost.CreatedAt, out var reposted))
-                        reposted = DateTimeOffset.UtcNow;
+                    var createdAtIso = new DateTimeOffset(track.CreatedAt, TimeSpan.Zero).ToString("o");
+                    var feedTrack = FeedTrack.FromTrack(track, createdAtIso);
+                    // Decrement by position so in-batch ordering still sorts newest-first,
+                    // matching the order SoundCloud returns reposts in.
+                    var reposted = observedAt.AddMilliseconds(-position);
                     _repo.UpsertTrackAndRepost(artistUrn, feedTrack, reposted);
-                    if (repost.Track.PermalinkUrl is not null)
-                        seenUrns?.Add(repost.Track.PermalinkUrl);
+                    seenUrns?.Add(track.PermalinkUrl);
+                    position++;
 
-                    newCursor ??= repost.Track.PermalinkUrl;
+                    newCursor ??= track.PermalinkUrl;
                 }
                 next = page.NextHref;
             } while (next is not null && !stopWalking);

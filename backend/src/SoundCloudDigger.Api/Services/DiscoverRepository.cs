@@ -2,26 +2,42 @@ using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Models;
+using SoundCloudDigger.Api.Services.Persistence;
 
 namespace SoundCloudDigger.Api.Services;
 
 public class DiscoverRepository
 {
     private readonly SqliteConnection _conn;
+    private readonly DbLock _dbLock;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public DiscoverRepository(SqliteConnection conn) { _conn = conn; }
+    public DiscoverRepository(SqliteConnection conn, DbLock? dbLock = null)
+    {
+        _conn = conn;
+        _dbLock = dbLock ?? new DbLock();
+    }
 
-    private record AggregatedRow(string PayloadJson, long ReposterCount, long LastRepostedAt, string ReposterNames);
+    // Class (not positional record) so Dapper does per-column conversion — SQLite
+    // aggregates can surface with unexpected storage class via Microsoft.Data.Sqlite,
+    // and positional records require an exact-signature constructor match.
+    private class AggregatedRow
+    {
+        public string PayloadJson { get; set; } = "";
+        public long ReposterCount { get; set; }
+        public long LastRepostedAt { get; set; }
+        public string ReposterNames { get; set; } = "";
+    }
 
     public IReadOnlyList<DiscoverTrack> GetConsensus(string userUrn)
     {
+        using var _ = _dbLock.Acquire();
         var rows = _conn.Query<AggregatedRow>(@"
 SELECT
   t.payload_json AS PayloadJson,
-  COUNT(DISTINCT ar.artist_urn) AS ReposterCount,
-  MAX(ar.reposted_at) AS LastRepostedAt,
-  GROUP_CONCAT(u.username, '|') AS ReposterNames
+  CAST(COUNT(DISTINCT ar.artist_urn) AS INTEGER) AS ReposterCount,
+  CAST(MAX(ar.reposted_at) AS INTEGER) AS LastRepostedAt,
+  CAST(GROUP_CONCAT(u.username, '|') AS TEXT) AS ReposterNames
 FROM artist_reposts ar
 JOIN tracks t ON t.urn = ar.track_urn
 JOIN users u ON u.urn = ar.artist_urn
@@ -60,6 +76,7 @@ ORDER BY ReposterCount DESC, LastRepostedAt DESC;",
 
     public (int fetched, int total) GetProgress(string userUrn)
     {
+        using var _ = _dbLock.Acquire();
         var total = (int)_conn.ExecuteScalar<long>(
             "SELECT COUNT(*) FROM followings WHERE user_urn=@u;", new { u = userUrn });
         if (total == 0) return (0, 0);
@@ -71,12 +88,16 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
     }
 
     public string? GetArtistCursor(string artistUrn)
-        => _conn.ExecuteScalar<string?>(
+    {
+        using var _ = _dbLock.Acquire();
+        return _conn.ExecuteScalar<string?>(
             "SELECT cursor FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
+    }
 
     public DateTimeOffset? GetArtistLastFetched(string artistUrn)
     {
+        using var _ = _dbLock.Acquire();
         var ts = _conn.ExecuteScalar<long?>(
             "SELECT last_fetched_at FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
@@ -85,6 +106,7 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
 
     public DateTimeOffset? GetArtistLastFullReset(string artistUrn)
     {
+        using var _ = _dbLock.Acquire();
         var ts = _conn.ExecuteScalar<long?>(
             "SELECT last_full_reset_at FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
@@ -95,6 +117,7 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var resetAt = didFullReset ? now : (long?)null;
+        using var _ = _dbLock.Acquire();
         _conn.Execute(@"
 INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at, last_full_reset_at)
 VALUES (@a, @c, @now, COALESCE(@reset, 0))
@@ -109,6 +132,7 @@ ON CONFLICT(artist_urn) DO UPDATE SET
     {
         // Caller invokes this only after a full reset walk, having collected every current repost.
         var urns = seenTrackUrns.ToList();
+        using var _ = _dbLock.Acquire();
         if (urns.Count == 0)
         {
             _conn.Execute(
@@ -138,6 +162,7 @@ WHERE artist_urn=@a
     public void UpsertTrackAndRepost(string artistUrn, FeedTrack track, DateTimeOffset repostedAt)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        using var _ = _dbLock.Acquire();
         using var tx = _conn.BeginTransaction();
         _conn.Execute(@"
 INSERT INTO tracks (urn, payload_json, updated_at)
@@ -153,6 +178,7 @@ VALUES (@a, @t, @ts);",
 
     public DateTimeOffset? GetDiscoverLastFetchedAt(string userUrn)
     {
+        using var _ = _dbLock.Acquire();
         var ts = _conn.ExecuteScalar<long?>(
             "SELECT discover_last_fetched_at FROM user_fetch_state WHERE user_urn=@u;",
             new { u = userUrn });
@@ -162,6 +188,7 @@ VALUES (@a, @t, @ts);",
     public void MarkDiscoverFetched(string userUrn)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        using var _ = _dbLock.Acquire();
         _conn.Execute(@"
 INSERT INTO user_fetch_state (user_urn, discover_last_fetched_at)
 VALUES (@u, @now)
@@ -171,8 +198,10 @@ ON CONFLICT(user_urn) DO UPDATE SET discover_last_fetched_at=excluded.discover_l
 
     public bool IsLoadingComplete(string userUrn)
     {
-        if (GetDiscoverLastFetchedAt(userUrn) is null) return false;
-        var (fetched, total) = GetProgress(userUrn);
-        return total > 0 && fetched >= total;
+        // discover_last_fetched_at is set by MarkDiscoverFetched at the end of a full
+        // StartFetchAsync walk. Transient per-artist failures are intentional — forcing
+        // fetched == total would wedge the loading indicator forever when even one
+        // follow 5xx's. Trust the walk-level flag.
+        return GetDiscoverLastFetchedAt(userUrn) is not null;
     }
 }
