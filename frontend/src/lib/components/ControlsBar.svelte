@@ -109,7 +109,7 @@
 	<div class="control-group">
 		<label class="checkbox">
 			<input type="checkbox" bind:checked={$hideUnplayable} />
-			Hide Go+-only tracks
+			Hide tracks the player can't stream
 		</label>
 	</div>
 

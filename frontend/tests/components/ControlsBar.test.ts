@@ -169,10 +169,10 @@ describe('ControlsBar — Discover mode', () => {
 		expect(get(discoverSortBy)).toBe('reposterCount'); // unchanged
 	});
 
-	it('renders a checked "Hide Go+-only tracks" box by default and toggles the store', async () => {
+	it('renders a checked "Hide tracks the player can\'t stream" box by default and toggles the store', async () => {
 		hideUnplayable.set(true);
 		render(ControlsBar);
-		const box = screen.getByRole('checkbox', { name: /Hide Go\+-only tracks/ }) as HTMLInputElement;
+		const box = screen.getByRole('checkbox', { name: /Hide tracks the player can't stream/ }) as HTMLInputElement;
 		expect(box.checked).toBe(true);
 		await fireEvent.click(box);
 		expect(get(hideUnplayable)).toBe(false);
