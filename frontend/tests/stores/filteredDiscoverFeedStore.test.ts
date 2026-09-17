@@ -164,7 +164,7 @@ describe('hiddenUnplayableDiscoverCount', () => {
 	afterEach(() => {
 		discoverFeedStore.stop();
 		vi.unstubAllGlobals();
-		hideUnplayable.set(true);
+		hideUnplayable.set(false);
 	});
 
 	it('counts non-playable tracks in the discover feed while hiding is on', async () => {

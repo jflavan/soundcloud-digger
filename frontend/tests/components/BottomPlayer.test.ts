@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BottomPlayer from '$lib/components/BottomPlayer.svelte';
 import type { FeedTrack } from '$lib/types';
+import * as api from '$lib/api';
 
 function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
 	return {
@@ -210,5 +211,88 @@ describe('BottomPlayer widget events', () => {
 		expect(handlers['error']).toBeTypeOf('function');
 		handlers['error']();
 		expect(props.onnext).toHaveBeenCalledOnce();
+	});
+});
+
+describe('BottomPlayer preview mode (tracks the widget cannot stream)', () => {
+	let playSpy: ReturnType<typeof vi.spyOn>;
+	let pauseSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		(window as any).SC = { Widget: Object.assign(() => ({ bind: vi.fn() }), { Events: { FINISH: 'finish' } }) };
+		document.body.focus();
+		playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+		pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function previewProps(overrides: Record<string, unknown> = {}) {
+		return defaultProps({ track: makeTrack({ access: 'preview' }), ...overrides });
+	}
+
+	it('uses an audio element fed by the stream endpoint instead of the widget iframe', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+
+		expect(container.querySelector('iframe')).toBeNull();
+		await vi.waitFor(() => {
+			const audio = container.querySelector('audio') as HTMLAudioElement;
+			expect(audio?.src).toBe('https://cdn.example/preview.mp3');
+		});
+		expect(api.fetchStreamUrl).toHaveBeenCalledWith('https://soundcloud.com/artist-slug/test-track');
+	});
+
+	it('explains that only a preview is available and links to the full track', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		render(BottomPlayer, { props: previewProps() });
+
+		const link = await screen.findByRole('link', { name: /Full track on SoundCloud/ });
+		expect((link as HTMLAnchorElement).href).toBe('https://soundcloud.com/artist-slug/test-track');
+		expect(screen.getByText(/30s preview/)).toBeTruthy();
+	});
+
+	it('advances to the next track when the preview ends', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const props = previewProps();
+		const { container } = render(BottomPlayer, { props });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+
+		container.querySelector('audio')!.dispatchEvent(new Event('ended'));
+		expect(props.onnext).toHaveBeenCalledOnce();
+	});
+
+	it('shows an unavailable notice, and does not auto-skip, when the stream cannot be fetched', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockRejectedValue(new Error('HTTP 404'));
+		const props = previewProps();
+		render(BottomPlayer, { props });
+
+		await screen.findByText(/Preview unavailable/);
+		expect(props.onnext).not.toHaveBeenCalled();
+	});
+
+	it('Space toggles the audio element and arrows seek it', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+		const audio = container.querySelector('audio') as HTMLAudioElement;
+		Object.defineProperty(audio, 'paused', { value: true, configurable: true });
+		playSpy.mockClear();
+
+		await fireEvent.keyDown(window, { code: 'Space' });
+		expect(playSpy).toHaveBeenCalledOnce();
+
+		Object.defineProperty(audio, 'paused', { value: false, configurable: true });
+		await fireEvent.keyDown(window, { code: 'Space' });
+		expect(pauseSpy).toHaveBeenCalledOnce();
+
+		audio.currentTime = 5;
+		await fireEvent.keyDown(window, { code: 'ArrowRight' });
+		expect(audio.currentTime).toBe(15);
+		await fireEvent.keyDown(window, { code: 'ArrowLeft' });
+		await fireEvent.keyDown(window, { code: 'ArrowLeft' });
+		expect(audio.currentTime).toBe(0);
 	});
 });

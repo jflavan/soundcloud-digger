@@ -101,6 +101,51 @@ public class SoundCloudClient : ISoundCloudClient
     public Task<SoundCloudUser> GetMe(string accessToken)
         => AuthedGet<SoundCloudUser>("https://api.soundcloud.com/me", accessToken);
 
+    public async Task<string?> ResolveTrackUrn(string permalinkUrl, string accessToken)
+    {
+        // Cached permalinks carry ?utm_* tracking params; /resolve wants the bare URL.
+        var clean = permalinkUrl.Split('?')[0];
+        var location = await AuthedRedirect(
+            $"https://api.soundcloud.com/resolve?url={Uri.EscapeDataString(clean)}", accessToken);
+        if (location is null) return null;
+        // /resolve 302s to https://api.soundcloud.com/tracks/soundcloud:tracks:123
+        var last = location.TrimEnd('/').Split('/').Last();
+        return Uri.UnescapeDataString(last);
+    }
+
+    public Task<SoundCloudStreams> GetTrackStreams(string trackUrn, string accessToken)
+        => AuthedGet<SoundCloudStreams>(
+            $"https://api.soundcloud.com/tracks/{trackUrn}/streams", accessToken);
+
+    public Task<string?> GetStreamRedirect(string streamUrl, string accessToken)
+        => AuthedRedirect(streamUrl, accessToken);
+
+    // GET without following redirects (the handler has AllowAutoRedirect=false):
+    // returns the Location of a 3xx, null on 404 or a non-redirect 2xx, throws otherwise.
+    private Task<string?> AuthedRedirect(string url, string accessToken)
+    {
+        return _retry.ExecuteAsync(ct =>
+            _rateLimiter.ExecuteAsync(async innerCt =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Authorization = new AuthenticationHeaderValue("OAuth", accessToken);
+                var response = await _httpClient.SendAsync(request, innerCt);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    await HandleThrottle(response, innerCt);
+                    throw new HttpRequestException("Rate limited", null, System.Net.HttpStatusCode.TooManyRequests);
+                }
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+                if ((int)response.StatusCode is >= 300 and < 400)
+                    return response.Headers.Location?.ToString();
+
+                response.EnsureSuccessStatusCode();
+                return null;
+            }, ct),
+            CancellationToken.None);
+    }
+
     private Task<T> AuthedGet<T>(string url, string accessToken)
     {
         return _retry.ExecuteAsync(ct =>

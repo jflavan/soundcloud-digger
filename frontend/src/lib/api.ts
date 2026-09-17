@@ -12,6 +12,7 @@ export async function checkSetupStatus(): Promise<{ configured: boolean }> {
 	return response.json();
 }
 
+
 export async function saveCredentials(
 	clientId: string,
 	clientSecret: string,
@@ -29,6 +30,7 @@ export async function saveCredentials(
 	return response.json();
 }
 
+
 export async function fetchFeed(): Promise<FeedResponse> {
 	const response = await fetch(`${API_BASE}/feed`, {
 		credentials: 'include',
@@ -43,5 +45,19 @@ export async function fetchFeed(): Promise<FeedResponse> {
 		throw new Error(`Failed to fetch feed: ${response.statusText}`);
 	}
 
+	return response.json();
+}
+
+/**
+ * Resolve a track permalink to a directly playable (signed, short-lived) stream URL.
+ * `preview` is true when SoundCloud only offers this account a ~30s snippet.
+ */
+export async function fetchStreamUrl(permalinkUrl: string): Promise<{ url: string; preview: boolean }> {
+	const response = await fetch(`${API_BASE}/tracks/stream?url=${encodeURIComponent(permalinkUrl)}`, {
+		credentials: 'include',
+	});
+	if (!response.ok) {
+		throw new Error(`Failed to fetch stream: HTTP ${response.status}`);
+	}
 	return response.json();
 }

@@ -26,6 +26,7 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 - **Shuffle mode** — random playback with no repeats until the queue is exhausted, then reshuffles; prev steps back through shuffle history
   - Shuffle toggle in the player while playing, and as a FAB when no track is active (clicking it starts a random track)
 - **Click-through to SoundCloud** — the artwork and title open the track page; the artist name opens the artist page (new tab)
+- **Preview-only tracks** — some tracks (Go+ catalogue, or tracks whose owner disabled third-party playback) can't be streamed by the SoundCloud embed at all; it 404s. They're badged **Preview** and the player plays the ~30-second preview the API offers instead, with a link to the full track on SoundCloud. A Go+ subscription doesn't change this — embedded players can't sign in. An optional **Hide preview-only tracks** filter removes them from both feeds
 - **Keyboard shortcuts** (active while the player is open and focus is not on an input/button)
   - `Space` — play / pause
   - `←` / `→` — seek backward / forward by 10 seconds
@@ -44,7 +45,7 @@ A web app that gives you a better view of your SoundCloud feed. Sort by likes, p
 
 The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user's feed in the background, and persists everything to SQLite. The frontend receives the full dataset and performs all sorting/filtering client-side for instant responsiveness. Discover runs a 30-minute background refresh of every followed artist's reposts, with a cursor high-water mark so steady-state refreshes are cheap. Once a week, Discover does a full re-walk of each artist's reposts to prune tracks the artist has since un-reposted.
 
-`GET /api/health/metrics` returns row counts for every persisted table — handy for sanity-checking background work.
+`GET /api/health/metrics` returns row counts for every persisted table — handy for sanity-checking background work. `GET /api/tracks/stream?url=<permalink>` resolves a track to a short-lived signed CDN URL (`{ url, preview }`) for the in-app preview player.
 
 > **Note on tokens:** OAuth refresh tokens are currently stored plaintext in the SQLite file (file permissions restrict it to owner-only). At-rest encryption via `Microsoft.AspNetCore.DataProtection` is a planned follow-up.
 

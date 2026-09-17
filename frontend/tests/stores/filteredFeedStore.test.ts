@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { filterAndSort, hiddenUnplayableFeedCount } from '$lib/stores/filteredFeedStore';
 import { feedTracks } from '$lib/stores/feedStore';
@@ -343,6 +343,13 @@ describe('hiddenUnplayableFeedCount', () => {
 		hideUnplayable.set(false);
 		feedTracks.set([makeTrack({ access: 'preview' })]);
 		expect(get(hiddenUnplayableFeedCount)).toBe(0);
-		hideUnplayable.set(true);
+	});
+});
+
+describe('hideUnplayable default', () => {
+	it('is off by default: preview tracks play as 30s snippets in-app, so they are shown', async () => {
+		vi.resetModules();
+		const { hideUnplayable: fresh } = await import('$lib/stores/filterStore');
+		expect(get(fresh)).toBe(false);
 	});
 });

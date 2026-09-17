@@ -27,10 +27,8 @@
 
 	const activeList = $derived($feedSource === 'discover' ? $filteredDiscover : $filteredFeed);
 
-	// Tell the user once per source when non-streamable tracks were hidden, after
-	// that source has finished loading so the count is final. Note the wording:
-	// SoundCloud serves these (Go+ catalogue) only inside its own app — embedded
-	// players can't sign in, so a Go+ subscription does not unlock them here.
+	// Tell the user once per source when the (opt-in) preview-only filter hid
+	// tracks, after that source has finished loading so the count is final.
 	const hiddenUnplayableCount = $derived(
 		$feedSource === 'discover' ? $hiddenUnplayableDiscoverCount : $hiddenUnplayableFeedCount
 	);
@@ -45,8 +43,8 @@
 		unplayableNoticeShown.add(source);
 		showToast(
 			n === 1
-				? '1 track hidden — SoundCloud only streams it in its own app, not in embedded players.'
-				: `${n} tracks hidden — SoundCloud only streams them in its own app, not in embedded players.`,
+				? '1 preview-only track hidden — the full version plays on SoundCloud.'
+				: `${n} preview-only tracks hidden — full versions play on SoundCloud.`,
 			{ actionLabel: 'Show anyway', onAction: () => hideUnplayable.set(false) }
 		);
 	});

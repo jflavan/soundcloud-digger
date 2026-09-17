@@ -12,5 +12,8 @@ export const durationMax = writable<number | null>(null);
 export const timeField = writable<TimeField>('feed');
 export const discoverSortBy = writable<DiscoverSortBy>('reposterCount');
 
-/** Hide tracks this account can't stream (Go+/Next Pro-gated). See utils/playability. */
-export const hideUnplayable = writable<boolean>(true);
+/**
+ * Hide preview-only tracks (see utils/playability). Off by default: the player
+ * can play their ~30s preview in-app, so they're shown with a badge instead.
+ */
+export const hideUnplayable = writable<boolean>(false);

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { FeedTrack } from '$lib/types';
 	import { resolvePlayerAction, isEditableTarget } from '$lib/utils/keyboardShortcuts';
+	import { isPlayable } from '$lib/utils/playability';
+	import { fetchStreamUrl } from '$lib/api';
 
 	let { track, shuffle, onprev, onnext, ontoggleShuffle, onclose }: {
 		track: FeedTrack;
@@ -24,6 +26,35 @@
 		} catch {
 			return null;
 		}
+	});
+
+	// Tracks the widget can't stream (access=preview) are played here directly:
+	// the API still serves this account a ~30s preview, fetched via the backend.
+	const previewMode = $derived(!isPlayable(track));
+	let audioEl = $state<HTMLAudioElement | null>(null);
+	let previewSrc = $state<string | null>(null);
+	let previewError = $state(false);
+
+	$effect(() => {
+		const url = track.permalinkUrl;
+		if (!previewMode || !url) return;
+		previewSrc = null;
+		previewError = false;
+		let cancelled = false;
+		fetchStreamUrl(url)
+			.then((r) => {
+				if (!cancelled) previewSrc = r.url;
+			})
+			.catch((err) => {
+				if (cancelled) return;
+				// Deliberately no auto-skip: if the backend is down this would race
+				// through the whole queue. The note below offers the SoundCloud link.
+				console.warn('Preview stream unavailable for', url, err);
+				previewError = true;
+			});
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	let iframeEl = $state<HTMLIFrameElement | null>(null);
@@ -84,8 +115,20 @@
 		if (!action) return;
 		e.preventDefault();
 		switch (action.type) {
-			case 'toggle': widget?.toggle(); break;
-			case 'seek': seekBy(action.deltaMs); break;
+			case 'toggle':
+				if (previewMode) {
+					if (audioEl) audioEl.paused ? void audioEl.play() : audioEl.pause();
+				} else {
+					widget?.toggle();
+				}
+				break;
+			case 'seek':
+				if (previewMode) {
+					if (audioEl) audioEl.currentTime = Math.max(0, audioEl.currentTime + action.deltaMs / 1000);
+				} else {
+					seekBy(action.deltaMs);
+				}
+				break;
 			case 'prev': onprev(); break;
 			case 'next': onnext(); break;
 		}
@@ -186,18 +229,40 @@
 		</div>
 
 		<div class="embed-section">
-			{#key track.permalinkUrl}
-				<iframe
-					bind:this={iframeEl}
-					title="SoundCloud Player"
-					width="100%"
-					height="20"
-					scrolling="no"
-					frameborder="no"
-					allow="autoplay"
-					src={embedUrl}
-				></iframe>
-			{/key}
+			{#if previewMode}
+				<div class="preview-player">
+					{#if previewSrc}
+						<audio
+							bind:this={audioEl}
+							src={previewSrc}
+							controls
+							autoplay
+							preload="auto"
+							onended={onnext}
+							onerror={() => (previewError = true)}
+						></audio>
+					{/if}
+					<span class="preview-note">
+						{#if previewError}Preview unavailable · {:else if previewSrc}30s preview · {:else}Loading preview… {/if}
+						{#if track.permalinkUrl}
+							<a href={track.permalinkUrl} target="_blank" rel="noopener noreferrer">Full track on SoundCloud ↗</a>
+						{/if}
+					</span>
+				</div>
+			{:else}
+				{#key track.permalinkUrl}
+					<iframe
+						bind:this={iframeEl}
+						title="SoundCloud Player"
+						width="100%"
+						height="20"
+						scrolling="no"
+						frameborder="no"
+						allow="autoplay"
+						src={embedUrl}
+					></iframe>
+				{/key}
+			{/if}
 		</div>
 
 		<button class="close-btn" onclick={onclose} title="Close player">
@@ -337,6 +402,34 @@
 		min-width: 0;
 		overflow: hidden;
 		border-radius: 4px;
+	}
+
+	.preview-player {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-width: 0;
+	}
+
+	.preview-player audio {
+		flex: 1;
+		min-width: 0;
+		height: 32px;
+	}
+
+	.preview-note {
+		color: #888;
+		font-size: 11px;
+		white-space: nowrap;
+	}
+
+	.preview-note a {
+		color: #f50;
+		text-decoration: none;
+	}
+
+	.preview-note a:hover {
+		text-decoration: underline;
 	}
 
 	.embed-section iframe {

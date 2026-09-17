@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { FeedTrack } from '$lib/types';
+	import { isPlayable } from '$lib/utils/playability';
 
 	let { track, selected = false, onselect }: {
 		track: FeedTrack;
@@ -43,7 +44,10 @@
 		height="40"
 	/>
 	<div class="info">
-		<span class="title">{track.title}</span>
+		<span class="title">
+			{track.title}
+			{#if !isPlayable(track)}<span class="badge" title="Only a 30s preview is available here; the full track plays on SoundCloud">Preview</span>{/if}
+		</span>
 		<span class="meta">{track.artistName}{track.genre ? ` · ${track.genre}` : ''}</span>
 	</div>
 	<div class="stats">
@@ -56,6 +60,19 @@
 </a>
 
 <style>
+	.badge {
+		display: inline-block;
+		margin-left: 6px;
+		padding: 1px 6px;
+		border: 1px solid #f50;
+		border-radius: 3px;
+		color: #f50;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		vertical-align: 1px;
+	}
 	.track-row {
 		display: flex;
 		align-items: center;
