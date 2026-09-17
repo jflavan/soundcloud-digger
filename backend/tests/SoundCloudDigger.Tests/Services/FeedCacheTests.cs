@@ -9,13 +9,12 @@ namespace SoundCloudDigger.Tests.Services;
 
 public class FeedCacheTests
 {
-    private (FeedCache cache, Microsoft.Data.Sqlite.SqliteConnection conn, SessionStore store) CreateSut()
+    private static (FeedCache cache, Db db, SessionStore store) CreateSut()
     {
-        var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        var store = new SessionStore(conn);
+        var db = TestDb.Create();
+        var store = new SessionStore(db);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
-        return (new FeedCache(conn, store), conn, store);
+        return (new FeedCache(db, store), db, store);
     }
 
     [Fact]
@@ -67,7 +66,8 @@ public class FeedCacheTests
     [Fact]
     public void AddTracks_IsNoOpForUnknownSession()
     {
-        var (cache, conn, _) = CreateSut();
+        var (cache, db, _) = CreateSut();
+        using var conn = db.Open();
         var track = new FeedTrack { PermalinkUrl = "u", Title = "T", ArtistName = "A" };
 
         cache.AddTracks("unknown", new List<FeedTrack> { track });

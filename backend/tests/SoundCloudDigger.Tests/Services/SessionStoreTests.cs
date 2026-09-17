@@ -7,18 +7,14 @@ namespace SoundCloudDigger.Tests.Services;
 
 public class SessionStoreTests
 {
-    private Microsoft.Data.Sqlite.SqliteConnection CreateDb()
-    {
-        var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        return conn;
-    }
+    private static Db CreateDb() => TestDb.Create();
 
     [Fact]
     public void Create_InsertsRow()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
 
         store.Create("sess1", "soundcloud:users:1", "at", "rt",
             DateTimeOffset.UtcNow.AddHours(1));
@@ -31,8 +27,9 @@ public class SessionStoreTests
     [Fact]
     public void TryGet_ReturnsSession()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
         store.Create("sess1", "soundcloud:users:1", "at", "rt",
             DateTimeOffset.UtcNow.AddHours(1));
 
@@ -45,8 +42,9 @@ public class SessionStoreTests
     [Fact]
     public void TryGet_ReturnsNullForUnknownSession()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
 
         var session = store.TryGet("missing");
 
@@ -56,8 +54,9 @@ public class SessionStoreTests
     [Fact]
     public void UpdateTokens_ReplacesAccessAndRefresh()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
         store.Create("sess1", "soundcloud:users:1", "at1", "rt1",
             DateTimeOffset.UtcNow.AddHours(1));
 
@@ -72,8 +71,9 @@ public class SessionStoreTests
     [Fact]
     public void Delete_RemovesRow()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
         store.Create("sess1", "soundcloud:users:1", "at", "rt",
             DateTimeOffset.UtcNow.AddHours(1));
 
@@ -85,8 +85,9 @@ public class SessionStoreTests
     [Fact]
     public void GetActiveSessions_ReturnsAll()
     {
-        using var conn = CreateDb();
-        var store = new SessionStore(conn);
+        using var db = CreateDb();
+        using var conn = db.Open();
+        var store = new SessionStore(db);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
         store.Create("s2", "u2", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
 

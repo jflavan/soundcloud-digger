@@ -6,7 +6,6 @@ using SoundCloudDigger.Api.Controllers;
 using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services;
 using SoundCloudDigger.Api.Services.Persistence;
-using SoundCloudDigger.Api.Services.Persistence.Migrations;
 
 namespace SoundCloudDigger.Tests.Controllers;
 
@@ -14,13 +13,12 @@ public class FeedControllerTests : IDisposable
 {
     private readonly Mock<IFeedCache> _mockCache = new();
     private readonly Mock<IFeedService> _mockFeedService = new();
-    private readonly Microsoft.Data.Sqlite.SqliteConnection _db;
+    private readonly Db _db;
     private readonly FeedController _sut;
 
     public FeedControllerTests()
     {
-        _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        _db = TestDb.Create();
         var sessions = new SessionStore(_db);
         sessions.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
 

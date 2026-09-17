@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Moq;
 using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services;
@@ -11,14 +10,13 @@ public class FeedServiceTests : IDisposable
 {
     private readonly Mock<ISoundCloudClient> _mockClient = new();
     private readonly Mock<ITokenService> _mockTokenService = new();
-    private readonly SqliteConnection _db;
+    private readonly Db _db;
     private readonly FeedCache _cache;
     private readonly FeedService _sut;
 
     public FeedServiceTests()
     {
-        _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        _db = TestDb.Create();
         var store = new SessionStore(_db);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
         _cache = new FeedCache(_db, store);

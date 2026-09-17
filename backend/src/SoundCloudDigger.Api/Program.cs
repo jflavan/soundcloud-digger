@@ -26,13 +26,13 @@ builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>()
         EnableMultipleHttp2Connections = true,
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
     });
-builder.Services.AddSingleton<Microsoft.Data.Sqlite.SqliteConnection>(_ =>
+builder.Services.AddSingleton<Db>(_ =>
 {
-    var conn = Db.Open();
+    var db = Db.ForFile();
+    using var conn = db.Open();
     SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-    return conn;
+    return db;
 });
-builder.Services.AddSingleton<DbLock>();
 
 builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<IFollowingsService, FollowingsService>();

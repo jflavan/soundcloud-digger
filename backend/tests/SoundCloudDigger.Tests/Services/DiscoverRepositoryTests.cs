@@ -9,10 +9,10 @@ namespace SoundCloudDigger.Tests.Services;
 
 public class DiscoverRepositoryTests
 {
-    private Microsoft.Data.Sqlite.SqliteConnection Seed()
+    private static Db Seed()
     {
-        var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        var db = TestDb.Create();
+        using var conn = db.Open();
 
         void AddArtist(string urn, string name) =>
             conn.Execute(
@@ -44,14 +44,15 @@ public class DiscoverRepositoryTests
                 "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', @u, 0);",
                 new { u });
 
-        return conn;
+        return db;
     }
 
     [Fact]
     public void GetConsensus_RanksByReposterCountDesc()
     {
-        using var conn = Seed();
-        var repo = new DiscoverRepository(conn);
+        using var db = Seed();
+        using var conn = db.Open();
+        var repo = new DiscoverRepository(db);
 
         var result = repo.GetConsensus("u1");
 
@@ -65,8 +66,9 @@ public class DiscoverRepositoryTests
     [Fact]
     public void GetConsensus_IncludesReposters()
     {
-        using var conn = Seed();
-        var repo = new DiscoverRepository(conn);
+        using var db = Seed();
+        using var conn = db.Open();
+        var repo = new DiscoverRepository(db);
 
         var result = repo.GetConsensus("u1");
         var a = result.First(t => t.PermalinkUrl == "trackA");
@@ -80,8 +82,8 @@ public class DiscoverRepositoryTests
     {
         // SQLite's default SQLITE_LIMIT_VARIABLE_NUMBER is 999 on older builds. We stage into
         // a temp table, so the number of URNs is irrelevant. 2000 is well past the limit.
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        using var db = TestDb.Create();
+        using var conn = db.Open();
 
         var keep = Enumerable.Range(0, 2000).Select(i => $"track_keep_{i}").ToList();
         var drop = new[] { "track_drop_1", "track_drop_2" };
@@ -90,7 +92,7 @@ public class DiscoverRepositoryTests
                 "INSERT INTO artist_reposts (artist_urn, track_urn, reposted_at) VALUES ('a1', @t, 0);",
                 new { t = urn });
 
-        var repo = new DiscoverRepository(conn);
+        var repo = new DiscoverRepository(db);
         repo.DeleteRepostsMissingAfterFullReset("a1", keep);
 
         Assert.Equal(2000L, conn.ExecuteScalar<long>(
@@ -102,10 +104,11 @@ public class DiscoverRepositoryTests
     [Fact]
     public void GetProgress_ReturnsFractionFetched()
     {
-        using var conn = Seed();
+        using var db = Seed();
+        using var conn = db.Open();
         conn.Execute(
             "INSERT INTO artist_fetch_state (artist_urn, last_fetched_at) VALUES ('a1', 0), ('a2', 0);");
-        var repo = new DiscoverRepository(conn);
+        var repo = new DiscoverRepository(db);
 
         var (fetched, total) = repo.GetProgress("u1");
 

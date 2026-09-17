@@ -12,8 +12,8 @@ public class FollowingsServiceTests
     [Fact]
     public async Task Ensure_FetchesFromApiWhenEmpty()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        using var db = TestDb.Create();
+        using var conn = db.Open();
         var tokenSvc = new Mock<ITokenService>();
         tokenSvc.Setup(t => t.GetValidAccessTokenAsync("u1")).ReturnsAsync("at");
 
@@ -25,7 +25,7 @@ public class FollowingsServiceTests
                 NextHref = null,
             });
 
-        var svc = new FollowingsService(conn, client.Object, tokenSvc.Object);
+        var svc = new FollowingsService(db, client.Object, tokenSvc.Object);
 
         var urns = await svc.EnsureAsync("u1");
 
@@ -36,8 +36,8 @@ public class FollowingsServiceTests
     [Fact]
     public async Task Ensure_UsesCacheWithinTtl()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        using var db = TestDb.Create();
+        using var conn = db.Open();
         conn.Execute(@"
 INSERT INTO followings (user_urn, followed_urn, fetched_at)
 VALUES ('u1', 'soundcloud:users:7', @now);",
@@ -50,7 +50,7 @@ VALUES ('soundcloud:users:7', 'cached', @now);",
         var client = new Mock<ISoundCloudClient>();
         var tokenSvc = new Mock<ITokenService>();
 
-        var svc = new FollowingsService(conn, client.Object, tokenSvc.Object);
+        var svc = new FollowingsService(db, client.Object, tokenSvc.Object);
 
         var urns = await svc.EnsureAsync("u1");
 

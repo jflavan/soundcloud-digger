@@ -9,17 +9,13 @@ namespace SoundCloudDigger.Tests.Services;
 
 public class DiscoverFeedServiceTests
 {
-    private Microsoft.Data.Sqlite.SqliteConnection CreateDb()
-    {
-        var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        return conn;
-    }
+    private static Db CreateDb() => TestDb.Create();
 
     [Fact]
     public async Task Fetch_SkipsArtistsWithRecentFetch()
     {
-        using var conn = CreateDb();
+        using var db = CreateDb();
+        using var conn = db.Open();
         conn.Execute(@"
 INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);
 INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at) VALUES ('a1', NULL, @now);",
@@ -31,8 +27,8 @@ INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at) VALUES ('a1
         var followings = new Mock<IFollowingsService>();
         followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
 
-        var repo = new DiscoverRepository(conn);
-        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object,
+        var repo = new DiscoverRepository(db);
+        var svc = new DiscoverFeedService(client.Object, tokens.Object,
             followings.Object, repo);
 
         await svc.StartFetchAsync("u1");
@@ -44,7 +40,8 @@ INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at) VALUES ('a1
     [Fact]
     public async Task Fetch_StopsWalkingWhenCursorHit()
     {
-        using var conn = CreateDb();
+        using var db = CreateDb();
+        using var conn = db.Open();
         conn.Execute(
             "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
         var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -76,8 +73,8 @@ VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
         var followings = new Mock<IFollowingsService>();
         followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
 
-        var repo = new DiscoverRepository(conn);
-        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object,
+        var repo = new DiscoverRepository(db);
+        var svc = new DiscoverFeedService(client.Object, tokens.Object,
             followings.Object, repo);
 
         await svc.StartFetchAsync("u1");
@@ -91,7 +88,8 @@ VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
     [Fact]
     public async Task Fetch_IsIdempotentForConcurrentCalls()
     {
-        using var conn = CreateDb();
+        using var db = CreateDb();
+        using var conn = db.Open();
         conn.Execute(
             "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
 
@@ -110,8 +108,8 @@ VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
         var followings = new Mock<IFollowingsService>();
         followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
 
-        var repo = new DiscoverRepository(conn);
-        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object,
+        var repo = new DiscoverRepository(db);
+        var svc = new DiscoverFeedService(client.Object, tokens.Object,
             followings.Object, repo);
 
         await Task.WhenAll(svc.StartFetchAsync("u1"), svc.StartFetchAsync("u1"));
@@ -122,7 +120,8 @@ VALUES ('a1', 'trackKnown', 0, @now);", new { now = nowSec });
     [Fact]
     public async Task Fetch_FullResetDropsRepostsNoLongerReturnedByArtist()
     {
-        using var conn = CreateDb();
+        using var db = CreateDb();
+        using var conn = db.Open();
         var eightDaysAgo = DateTimeOffset.UtcNow.AddDays(-8).ToUnixTimeSeconds();
         conn.Execute(
             "INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
@@ -155,8 +154,8 @@ VALUES ('trackUnreposted', '{}', @t), ('trackStillUp', '{}', @t);",
         var followings = new Mock<IFollowingsService>();
         followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
 
-        var repo = new DiscoverRepository(conn);
-        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object,
+        var repo = new DiscoverRepository(db);
+        var svc = new DiscoverFeedService(client.Object, tokens.Object,
             followings.Object, repo);
 
         await svc.StartFetchAsync("u1");
@@ -175,7 +174,8 @@ VALUES ('trackUnreposted', '{}', @t), ('trackStillUp', '{}', @t);",
     {
         // reposted_at is stored as whole unix seconds, so in-batch ordering has to be
         // expressed in seconds — sub-second offsets would all truncate to the same value.
-        using var conn = CreateDb();
+        using var db = CreateDb();
+        using var conn = db.Open();
         conn.Execute("INSERT INTO users (urn, username, fetched_at) VALUES ('a1', 'alice', 0);");
         conn.Execute("INSERT INTO followings (user_urn, followed_urn, fetched_at) VALUES ('u1', 'a1', 0);");
 
@@ -196,8 +196,8 @@ VALUES ('trackUnreposted', '{}', @t), ('trackStillUp', '{}', @t);",
         var followings = new Mock<IFollowingsService>();
         followings.Setup(f => f.EnsureAsync("u1")).ReturnsAsync(new[] { "a1" });
 
-        var repo = new DiscoverRepository(conn);
-        var svc = new DiscoverFeedService(conn, client.Object, tokens.Object, followings.Object, repo);
+        var repo = new DiscoverRepository(db);
+        var svc = new DiscoverFeedService(client.Object, tokens.Object, followings.Object, repo);
 
         await svc.StartFetchAsync("u1");
 
