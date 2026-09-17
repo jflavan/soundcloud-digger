@@ -11,6 +11,7 @@ import {
 	excludedGenres,
 	durationMin,
 	durationMax,
+	hideUnplayable,
 } from '$lib/stores/filterStore';
 import { feedTracks } from '$lib/stores/feedStore';
 import { feedSource } from '$lib/stores/feedSource';
@@ -166,5 +167,16 @@ describe('ControlsBar — Discover mode', () => {
 		await fireEvent.click(screen.getByText(/^plays$/i));
 		expect(get(sortBy)).toBe('plays');
 		expect(get(discoverSortBy)).toBe('reposterCount'); // unchanged
+	});
+
+	it('renders a checked "Hide Go+-only tracks" box by default and toggles the store', async () => {
+		hideUnplayable.set(true);
+		render(ControlsBar);
+		const box = screen.getByRole('checkbox', { name: /Hide Go\+-only tracks/ }) as HTMLInputElement;
+		expect(box.checked).toBe(true);
+		await fireEvent.click(box);
+		expect(get(hideUnplayable)).toBe(false);
+		await fireEvent.click(box);
+		expect(get(hideUnplayable)).toBe(true);
 	});
 });

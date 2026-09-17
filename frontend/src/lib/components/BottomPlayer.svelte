@@ -52,6 +52,14 @@
 		widget.bind(SC.Widget.Events.FINISH, () => {
 			onnext();
 		});
+		// A track whose stream 404s (Go+-gated, region-blocked, removed) would
+		// otherwise sit silently and stall autoplay/shuffle. Skip it.
+		if (SC.Widget.Events.ERROR) {
+			widget.bind(SC.Widget.Events.ERROR, () => {
+				console.warn('SoundCloud widget could not play', track.permalinkUrl, '— skipping');
+				onnext();
+			});
+		}
 		finishBound = true;
 	}
 

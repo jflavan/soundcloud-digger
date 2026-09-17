@@ -170,3 +170,45 @@ describe('BottomPlayer keyboard shortcuts', () => {
 		input.remove();
 	});
 });
+
+describe('BottomPlayer widget events', () => {
+	let handlers: Record<string, () => void>;
+
+	beforeEach(() => {
+		handlers = {};
+		(window as any).SC = {
+			Widget: Object.assign(
+				(_iframe: HTMLIFrameElement) => ({
+					bind: (event: string, cb: () => void) => { handlers[event] = cb; },
+					toggle: vi.fn(),
+					getPosition: (cb: (pos: number) => void) => cb(0),
+					seekTo: vi.fn(),
+				}),
+				{ Events: { FINISH: 'finish', ERROR: 'error' } }
+			),
+		};
+	});
+
+	async function renderAndLoad(props: ReturnType<typeof defaultProps>) {
+		const { container } = render(BottomPlayer, { props });
+		// The component binds widget events once the iframe reports load.
+		await Promise.resolve();
+		container.querySelector('iframe')!.dispatchEvent(new Event('load'));
+		return container;
+	}
+
+	it('advances to the next track when the widget finishes', async () => {
+		const props = defaultProps();
+		await renderAndLoad(props);
+		handlers['finish']();
+		expect(props.onnext).toHaveBeenCalledOnce();
+	});
+
+	it('skips to the next track when the widget reports a playback error', async () => {
+		const props = defaultProps();
+		await renderAndLoad(props);
+		expect(handlers['error']).toBeTypeOf('function');
+		handlers['error']();
+		expect(props.onnext).toHaveBeenCalledOnce();
+	});
+});

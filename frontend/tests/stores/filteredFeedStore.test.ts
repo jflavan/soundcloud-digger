@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndSort } from '$lib/stores/filteredFeedStore';
+import { get } from 'svelte/store';
+import { filterAndSort, hiddenUnplayableFeedCount } from '$lib/stores/filteredFeedStore';
+import { feedTracks } from '$lib/stores/feedStore';
+import { hideUnplayable } from '$lib/stores/filterStore';
 import type { FeedTrack, SortBy, TimeRange } from '$lib/types';
 
 function makeTrack(overrides: Partial<FeedTrack> = {}): FeedTrack {
@@ -301,5 +304,45 @@ describe('filterAndSort', () => {
 
 		const result = filterAndSort(tracks, 'date', 'all', [], null, null);
 		expect(result.map((t) => t.title).sort()).toEqual(['First', 'Other']);
+	});
+
+	it('hides Go+-only (non-playable) tracks when hideUnplayable is set', () => {
+		const tracks = [
+			makeTrack({ title: 'Free', access: 'playable' }),
+			makeTrack({ title: 'GoPlus', access: 'preview' }),
+			makeTrack({ title: 'Blocked', access: 'blocked' }),
+		];
+
+		const result = filterAndSort(tracks, 'date', 'all', [], null, null, 'feed', [], true);
+		expect(result.map((t) => t.title)).toEqual(['Free']);
+	});
+
+	it('keeps non-playable tracks when hideUnplayable is off', () => {
+		const tracks = [
+			makeTrack({ title: 'Free', access: 'playable' }),
+			makeTrack({ title: 'GoPlus', access: 'preview' }),
+		];
+
+		const result = filterAndSort(tracks, 'date', 'all', [], null, null, 'feed', [], false);
+		expect(result).toHaveLength(2);
+	});
+});
+
+describe('hiddenUnplayableFeedCount', () => {
+	it('counts the non-playable tracks in the feed while hiding is on', () => {
+		hideUnplayable.set(true);
+		feedTracks.set([
+			makeTrack({ access: 'playable' }),
+			makeTrack({ access: 'preview' }),
+			makeTrack({ access: 'preview' }),
+		]);
+		expect(get(hiddenUnplayableFeedCount)).toBe(2);
+	});
+
+	it('is zero when hiding is off, even if non-playable tracks exist', () => {
+		hideUnplayable.set(false);
+		feedTracks.set([makeTrack({ access: 'preview' })]);
+		expect(get(hiddenUnplayableFeedCount)).toBe(0);
+		hideUnplayable.set(true);
 	});
 });

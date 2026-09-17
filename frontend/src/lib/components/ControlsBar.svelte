@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SortBy, TimeRange, TimeField } from '$lib/types';
-	import { sortBy, discoverSortBy, timeRange, selectedGenres, excludedGenres, timeField } from '$lib/stores/filterStore';
+	import { sortBy, discoverSortBy, timeRange, selectedGenres, excludedGenres, timeField, hideUnplayable } from '$lib/stores/filterStore';
 	import { availableGenres } from '$lib/stores/filteredFeedStore';
 	import { availableDiscoverGenres } from '$lib/stores/filteredDiscoverFeedStore';
 	import { feedSource } from '$lib/stores/feedSource';
@@ -107,6 +107,13 @@
 	</div>
 
 	<div class="control-group">
+		<label class="checkbox">
+			<input type="checkbox" bind:checked={$hideUnplayable} />
+			Hide Go+-only tracks
+		</label>
+	</div>
+
+	<div class="control-group">
 		<DurationRangeSlider />
 	</div>
 
@@ -195,6 +202,18 @@
 	.toggle.active {
 		background: #f50;
 		color: white;
+	}
+	.checkbox {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: #aaa;
+		font-size: 13px;
+		cursor: pointer;
+	}
+	.checkbox input {
+		accent-color: #f50;
+		cursor: pointer;
 	}
 	.separator {
 		width: 1px;

@@ -11,3 +11,6 @@ export const durationMin = writable<number | null>(null);
 export const durationMax = writable<number | null>(null);
 export const timeField = writable<TimeField>('feed');
 export const discoverSortBy = writable<DiscoverSortBy>('reposterCount');
+
+/** Hide tracks this account can't stream (Go+/Next Pro-gated). See utils/playability. */
+export const hideUnplayable = writable<boolean>(true);

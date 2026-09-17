@@ -1,6 +1,7 @@
 import { derived } from 'svelte/store';
 import { feedTracks } from './feedStore';
-import { sortBy, timeRange, selectedGenres, excludedGenres, durationMin, durationMax, timeField } from './filterStore';
+import { sortBy, timeRange, selectedGenres, excludedGenres, durationMin, durationMax, timeField, hideUnplayable } from './filterStore';
+import { isPlayable, countUnplayable } from '$lib/utils/playability';
 import type { FeedTrack, SortBy, TimeRange, TimeField } from '$lib/types';
 
 const TIME_RANGE_MS: Record<TimeRange, number> = {
@@ -18,7 +19,8 @@ export function filterAndSort(
 	durMin: number | null,
 	durMax: number | null,
 	field: TimeField = 'feed',
-	excluded: string[] = []
+	excluded: string[] = [],
+	hideNonPlayable = false
 ): FeedTrack[] {
 	const now = Date.now();
 	const cutoff = TIME_RANGE_MS[range];
@@ -38,6 +40,10 @@ export function filterAndSort(
 
 	if (excluded.length > 0) {
 		filtered = filtered.filter((t) => t.genre === null || !excluded.includes(t.genre));
+	}
+
+	if (hideNonPlayable) {
+		filtered = filtered.filter(isPlayable);
 	}
 
 	if (durMin !== null) {
@@ -74,9 +80,15 @@ export function filterAndSort(
 }
 
 export const filteredFeed = derived(
-	[feedTracks, sortBy, timeRange, selectedGenres, excludedGenres, durationMin, durationMax, timeField],
-	([$tracks, $sortBy, $timeRange, $genres, $excluded, $durMin, $durMax, $timeField]) =>
-		filterAndSort($tracks, $sortBy, $timeRange, $genres, $durMin, $durMax, $timeField, $excluded)
+	[feedTracks, sortBy, timeRange, selectedGenres, excludedGenres, durationMin, durationMax, timeField, hideUnplayable],
+	([$tracks, $sortBy, $timeRange, $genres, $excluded, $durMin, $durMax, $timeField, $hide]) =>
+		filterAndSort($tracks, $sortBy, $timeRange, $genres, $durMin, $durMax, $timeField, $excluded, $hide)
+);
+
+/** How many feed tracks the hideUnplayable filter is currently removing. */
+export const hiddenUnplayableFeedCount = derived(
+	[feedTracks, hideUnplayable],
+	([$tracks, $hide]) => ($hide ? countUnplayable($tracks) : 0)
 );
 
 export const availableGenres = derived(feedTracks, ($tracks) => {
