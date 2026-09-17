@@ -5,8 +5,8 @@ dev:
 
 setup:
 	cd backend && dotnet restore
-	cd frontend && npm install
+	cd frontend && bun install
 
 test:
 	cd backend && dotnet test
-	cd frontend && npx vitest run
+	cd frontend && bun run test

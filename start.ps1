@@ -5,12 +5,8 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Error "dotnet is not installed. Get it at https://dotnet.microsoft.com/download"
     exit 1
 }
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Error "node is not installed. Get it at https://nodejs.org/"
-    exit 1
-}
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Write-Error "npm is not installed. Get it at https://nodejs.org/"
+if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+    Write-Error "bun is not installed. Get it at https://bun.sh/"
     exit 1
 }
 
@@ -22,7 +18,7 @@ dotnet restore --verbosity quiet
 Pop-Location
 
 Push-Location "$Root/frontend"
-npm install --silent
+bun install --silent
 Pop-Location
 
 Write-Host "Starting backend on port 5032..."
@@ -30,8 +26,8 @@ $backend = Start-Process -NoNewWindow -PassThru -FilePath dotnet `
     -ArgumentList "run","--project","$Root/backend/src/SoundCloudDigger.Api","--no-restore"
 
 Write-Host "Starting frontend on port 5173..."
-$frontend = Start-Process -NoNewWindow -PassThru -FilePath npm `
-    -ArgumentList "run","dev","--","--open","http://scdigger.localhost:5173" `
+$frontend = Start-Process -NoNewWindow -PassThru -FilePath bun `
+    -ArgumentList "run","dev","--open","http://scdigger.localhost:5173" `
     -WorkingDirectory "$Root/frontend"
 
 Write-Host ""
