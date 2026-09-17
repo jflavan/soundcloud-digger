@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Dapper;
-using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services.Persistence;
 
@@ -8,14 +7,12 @@ namespace SoundCloudDigger.Api.Services;
 
 public class DiscoverRepository
 {
-    private readonly SqliteConnection _conn;
-    private readonly DbLock _dbLock;
+    private readonly Db _db;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public DiscoverRepository(SqliteConnection conn, DbLock? dbLock = null)
+    public DiscoverRepository(Db db)
     {
-        _conn = conn;
-        _dbLock = dbLock ?? new DbLock();
+        _db = db;
     }
 
     // Class (not positional record) so Dapper does per-column conversion — SQLite
@@ -31,8 +28,8 @@ public class DiscoverRepository
 
     public IReadOnlyList<DiscoverTrack> GetConsensus(string userUrn)
     {
-        using var _ = _dbLock.Acquire();
-        var rows = _conn.Query<AggregatedRow>(@"
+        using var conn = _db.Open();
+        var rows = conn.Query<AggregatedRow>(@"
 SELECT
   t.payload_json AS PayloadJson,
   CAST(COUNT(DISTINCT ar.artist_urn) AS INTEGER) AS ReposterCount,
@@ -76,11 +73,11 @@ ORDER BY ReposterCount DESC, LastRepostedAt DESC;",
 
     public (int fetched, int total) GetProgress(string userUrn)
     {
-        using var _ = _dbLock.Acquire();
-        var total = (int)_conn.ExecuteScalar<long>(
+        using var conn = _db.Open();
+        var total = (int)conn.ExecuteScalar<long>(
             "SELECT COUNT(*) FROM followings WHERE user_urn=@u;", new { u = userUrn });
         if (total == 0) return (0, 0);
-        var fetched = (int)_conn.ExecuteScalar<long>(@"
+        var fetched = (int)conn.ExecuteScalar<long>(@"
 SELECT COUNT(*) FROM artist_fetch_state
 WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
             new { u = userUrn });
@@ -89,16 +86,16 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
 
     public string? GetArtistCursor(string artistUrn)
     {
-        using var _ = _dbLock.Acquire();
-        return _conn.ExecuteScalar<string?>(
+        using var conn = _db.Open();
+        return conn.ExecuteScalar<string?>(
             "SELECT cursor FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
     }
 
     public DateTimeOffset? GetArtistLastFetched(string artistUrn)
     {
-        using var _ = _dbLock.Acquire();
-        var ts = _conn.ExecuteScalar<long?>(
+        using var conn = _db.Open();
+        var ts = conn.ExecuteScalar<long?>(
             "SELECT last_fetched_at FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
         return ts is null ? null : DateTimeOffset.FromUnixTimeSeconds(ts.Value);
@@ -106,8 +103,8 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
 
     public DateTimeOffset? GetArtistLastFullReset(string artistUrn)
     {
-        using var _ = _dbLock.Acquire();
-        var ts = _conn.ExecuteScalar<long?>(
+        using var conn = _db.Open();
+        var ts = conn.ExecuteScalar<long?>(
             "SELECT last_full_reset_at FROM artist_fetch_state WHERE artist_urn=@a;",
             new { a = artistUrn });
         return ts is null or 0 ? null : DateTimeOffset.FromUnixTimeSeconds(ts.Value);
@@ -117,8 +114,8 @@ WHERE artist_urn IN (SELECT followed_urn FROM followings WHERE user_urn=@u);",
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var resetAt = didFullReset ? now : (long?)null;
-        using var _ = _dbLock.Acquire();
-        _conn.Execute(@"
+        using var conn = _db.Open();
+        conn.Execute(@"
 INSERT INTO artist_fetch_state (artist_urn, cursor, last_fetched_at, last_full_reset_at)
 VALUES (@a, @c, @now, COALESCE(@reset, 0))
 ON CONFLICT(artist_urn) DO UPDATE SET
@@ -132,10 +129,10 @@ ON CONFLICT(artist_urn) DO UPDATE SET
     {
         // Caller invokes this only after a full reset walk, having collected every current repost.
         var urns = seenTrackUrns.ToList();
-        using var _ = _dbLock.Acquire();
+        using var conn = _db.Open();
         if (urns.Count == 0)
         {
-            _conn.Execute(
+            conn.Execute(
                 "DELETE FROM artist_reposts WHERE artist_urn=@a;",
                 new { a = artistUrn });
             return;
@@ -143,33 +140,33 @@ ON CONFLICT(artist_urn) DO UPDATE SET
 
         // Use a temp table instead of `NOT IN @urns` — Dapper expands the latter to one
         // parameter per URN and whale artists can blow past SQLite's variable-count limit.
-        using var tx = _conn.BeginTransaction();
-        _conn.Execute("CREATE TEMP TABLE IF NOT EXISTS seen_track_urns (urn TEXT PRIMARY KEY);", transaction: tx);
-        _conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
-        _conn.Execute(
+        using var tx = conn.BeginTransaction();
+        conn.Execute("CREATE TEMP TABLE IF NOT EXISTS seen_track_urns (urn TEXT PRIMARY KEY);", transaction: tx);
+        conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
+        conn.Execute(
             "INSERT INTO seen_track_urns (urn) VALUES (@urn);",
             urns.Select(u => new { urn = u }),
             transaction: tx);
-        _conn.Execute(@"
+        conn.Execute(@"
 DELETE FROM artist_reposts
 WHERE artist_urn=@a
   AND track_urn NOT IN (SELECT urn FROM seen_track_urns);",
             new { a = artistUrn }, tx);
-        _conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
+        conn.Execute("DELETE FROM seen_track_urns;", transaction: tx);
         tx.Commit();
     }
 
     public void UpsertTrackAndRepost(string artistUrn, FeedTrack track, DateTimeOffset repostedAt)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        using var _ = _dbLock.Acquire();
-        using var tx = _conn.BeginTransaction();
-        _conn.Execute(@"
+        using var conn = _db.Open();
+        using var tx = conn.BeginTransaction();
+        conn.Execute(@"
 INSERT INTO tracks (urn, payload_json, updated_at)
 VALUES (@urn, @payload, @now)
 ON CONFLICT(urn) DO UPDATE SET payload_json=excluded.payload_json, updated_at=excluded.updated_at;",
             new { urn = track.PermalinkUrl, payload = JsonSerializer.Serialize(track, Json), now }, tx);
-        _conn.Execute(@"
+        conn.Execute(@"
 INSERT OR IGNORE INTO artist_reposts (artist_urn, track_urn, reposted_at)
 VALUES (@a, @t, @ts);",
             new { a = artistUrn, t = track.PermalinkUrl, ts = repostedAt.ToUnixTimeSeconds() }, tx);
@@ -178,8 +175,8 @@ VALUES (@a, @t, @ts);",
 
     public DateTimeOffset? GetDiscoverLastFetchedAt(string userUrn)
     {
-        using var _ = _dbLock.Acquire();
-        var ts = _conn.ExecuteScalar<long?>(
+        using var conn = _db.Open();
+        var ts = conn.ExecuteScalar<long?>(
             "SELECT discover_last_fetched_at FROM user_fetch_state WHERE user_urn=@u;",
             new { u = userUrn });
         return ts is null ? null : DateTimeOffset.FromUnixTimeSeconds(ts.Value);
@@ -188,8 +185,8 @@ VALUES (@a, @t, @ts);",
     public void MarkDiscoverFetched(string userUrn)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        using var _ = _dbLock.Acquire();
-        _conn.Execute(@"
+        using var conn = _db.Open();
+        conn.Execute(@"
 INSERT INTO user_fetch_state (user_urn, discover_last_fetched_at)
 VALUES (@u, @now)
 ON CONFLICT(user_urn) DO UPDATE SET discover_last_fetched_at=excluded.discover_last_fetched_at;",

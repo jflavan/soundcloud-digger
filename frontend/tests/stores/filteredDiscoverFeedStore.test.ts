@@ -73,4 +73,69 @@ describe('filterAndSortDiscover', () => {
 		const out = filterAndSortDiscover(tracks, 'reposterCount', 'all', [], null, null);
 		expect(out).toHaveLength(1);
 	});
+
+	it('sorts by likes, plays, reposts, and comments desc', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'a', likesCount: 1, playbackCount: 3, repostsCount: 2, commentCount: 1 }),
+			makeTrack({ permalinkUrl: 'b', likesCount: 3, playbackCount: 1, repostsCount: 3, commentCount: 2 }),
+			makeTrack({ permalinkUrl: 'c', likesCount: 2, playbackCount: 2, repostsCount: 1, commentCount: 3 }),
+		];
+		const ids = (sort: 'likes' | 'plays' | 'reposts' | 'comments') =>
+			filterAndSortDiscover(tracks, sort, 'all', [], null, null).map((t) => t.permalinkUrl);
+		expect(ids('likes')).toEqual(['b', 'c', 'a']);
+		expect(ids('plays')).toEqual(['a', 'c', 'b']);
+		expect(ids('reposts')).toEqual(['b', 'a', 'c']);
+		expect(ids('comments')).toEqual(['c', 'b', 'a']);
+	});
+
+	it('filters by time range using lastRepostedAt by default', () => {
+		const now = Date.now();
+		const hoursAgo = (h: number) => new Date(now - h * 60 * 60 * 1000).toISOString();
+		const tracks = [
+			makeTrack({ permalinkUrl: 'recent', lastRepostedAt: hoursAgo(1), createdAt: hoursAgo(500) }),
+			makeTrack({ permalinkUrl: 'old', lastRepostedAt: hoursAgo(48), createdAt: hoursAgo(1) }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', '24h', [], null, null);
+		expect(out.map((t) => t.permalinkUrl)).toEqual(['recent']);
+	});
+
+	it('filters by time range using createdAt when timeField is uploaded', () => {
+		const now = Date.now();
+		const daysAgo = (d: number) => new Date(now - d * 24 * 60 * 60 * 1000).toISOString();
+		const tracks = [
+			makeTrack({ permalinkUrl: 'fresh', lastRepostedAt: daysAgo(30), createdAt: daysAgo(1) }),
+			makeTrack({ permalinkUrl: 'stale', lastRepostedAt: daysAgo(1), createdAt: daysAgo(30) }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', '7d', [], null, null, 'uploaded');
+		expect(out.map((t) => t.permalinkUrl)).toEqual(['fresh']);
+	});
+
+	it('excludes tracks with excluded genres but keeps null-genre tracks', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'a', genre: 'Electronic' }),
+			makeTrack({ permalinkUrl: 'b', genre: 'Rock' }),
+			makeTrack({ permalinkUrl: 'c', genre: null }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', 'all', [], null, null, 'feed', ['Rock']);
+		expect(out.map((t) => t.permalinkUrl)).toEqual(['a', 'c']);
+	});
+
+	it('exclusion wins over inclusion for the same genre', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'a', genre: 'Electronic' }),
+			makeTrack({ permalinkUrl: 'b', genre: 'Rock' }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', 'all', ['Electronic', 'Rock'], null, null, 'feed', ['Rock']);
+		expect(out.map((t) => t.permalinkUrl)).toEqual(['a']);
+	});
+
+	it('dedupes by title and artist when permalinkUrl is missing', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: null as unknown as string, title: 'Same', artistName: 'Artist' }),
+			makeTrack({ permalinkUrl: null as unknown as string, title: 'Same', artistName: 'Artist' }),
+			makeTrack({ permalinkUrl: null as unknown as string, title: 'Other', artistName: 'Artist' }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', 'all', [], null, null);
+		expect(out.map((t) => t.title)).toEqual(['Same', 'Other']);
+	});
 });

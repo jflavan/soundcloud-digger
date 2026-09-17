@@ -20,7 +20,8 @@ public class AuthControllerTests : IDisposable
     private readonly Mock<IServiceScopeFactory> _mockScopeFactory = new();
     private readonly Mock<IFeedCache> _mockFeedCache = new();
     private readonly Mock<IDiscoverFeedService> _mockDiscoverService = new();
-    private readonly SqliteConnection _db;
+    private readonly Db _db;
+    private readonly SqliteConnection _conn;
     private readonly SessionStore _sessionStore;
     private readonly AuthController _sut;
 
@@ -35,8 +36,8 @@ public class AuthControllerTests : IDisposable
             })
             .Build();
 
-        _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        _db = TestDb.Create();
+        _conn = _db.Open();
         _sessionStore = new SessionStore(_db);
 
         _mockDiscoverService
@@ -51,7 +52,6 @@ public class AuthControllerTests : IDisposable
             _mockFeedCache.Object,
             _sessionStore,
             _db,
-            new DbLock(),
             _mockDiscoverService.Object);
 
         var httpContext = new DefaultHttpContext();
@@ -62,7 +62,11 @@ public class AuthControllerTests : IDisposable
         };
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _conn.Dispose();
+        _db.Dispose();
+    }
 
     private void SetupCallbackMocks(
         string accessToken = "access_123",
@@ -172,16 +176,16 @@ public class AuthControllerTests : IDisposable
         await _sut.Callback("code1", "state1");
 
         // Assert: user row upserted
-        var userCount = _db.ExecuteScalar<long>(
+        var userCount = _conn.ExecuteScalar<long>(
             "SELECT COUNT(*) FROM users WHERE urn='soundcloud:users:42';");
         Assert.Equal(1, userCount);
 
-        var storedUsername = _db.ExecuteScalar<string>(
+        var storedUsername = _conn.ExecuteScalar<string>(
             "SELECT username FROM users WHERE urn='soundcloud:users:42';");
         Assert.Equal("digger_user", storedUsername);
 
         // Assert: session row created with correct user_urn
-        var sessionCount = _db.ExecuteScalar<long>(
+        var sessionCount = _conn.ExecuteScalar<long>(
             "SELECT COUNT(*) FROM sessions WHERE user_urn='soundcloud:users:42';");
         Assert.Equal(1, sessionCount);
 

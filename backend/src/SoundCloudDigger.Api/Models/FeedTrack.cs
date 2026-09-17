@@ -43,7 +43,7 @@ public class FeedTrack
         };
     }
 
-    public static FeedTrack FromTrack(SoundCloudTrack track, string createdAt)
+    public static FeedTrack FromTrack(SoundCloudTrack track, DateTime appearedAt)
     {
         return new FeedTrack
         {
@@ -61,7 +61,7 @@ public class FeedTrack
             Duration = track.Duration ?? 0,
             Access = track.Access ?? "playable",
             ActivityType = "track-repost",
-            AppearedAt = DateTimeOffset.TryParse(createdAt, out var a) ? a.UtcDateTime : DateTime.UtcNow,
+            AppearedAt = appearedAt,
         };
     }
 

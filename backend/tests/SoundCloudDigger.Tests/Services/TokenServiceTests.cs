@@ -66,9 +66,8 @@ public class TokenServiceTests
     [Fact]
     public async Task GetValidAccessTokenAsync_ReturnsExisting_WhenNotExpired()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        var store = new SessionStore(conn);
+        using var db = TestDb.Create();
+        var store = new SessionStore(db);
         store.Create("s1", "u1", "goodtoken", "rt", DateTimeOffset.UtcNow.AddMinutes(30));
 
         var client = new Mock<ISoundCloudClient>();
@@ -83,9 +82,8 @@ public class TokenServiceTests
     [Fact]
     public async Task GetValidAccessTokenAsync_RefreshesWhenExpired()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        var store = new SessionStore(conn);
+        using var db = TestDb.Create();
+        var store = new SessionStore(db);
         store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
 
         var client = new Mock<ISoundCloudClient>();
@@ -106,9 +104,8 @@ public class TokenServiceTests
     [Fact]
     public async Task GetValidAccessTokenAsync_ReturnsNullWhenNoSession()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        var store = new SessionStore(conn);
+        using var db = TestDb.Create();
+        var store = new SessionStore(db);
 
         var client = new Mock<ISoundCloudClient>();
         var svc = CreateTokenService(store, client.Object);
@@ -121,9 +118,8 @@ public class TokenServiceTests
     [Fact]
     public async Task GetValidAccessTokenAsync_ReturnsNullWhenRefreshFails()
     {
-        using var conn = Db.OpenInMemory();
-        SchemaMigrator.Migrate(conn, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
-        var store = new SessionStore(conn);
+        using var db = TestDb.Create();
+        var store = new SessionStore(db);
         store.Create("s1", "u1", "stale", "rt", DateTimeOffset.UtcNow.AddMinutes(-5));
 
         var client = new Mock<ISoundCloudClient>();

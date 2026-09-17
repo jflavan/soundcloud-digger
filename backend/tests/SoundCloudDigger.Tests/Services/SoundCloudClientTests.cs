@@ -58,4 +58,127 @@ public class SoundCloudClientTests
         await Assert.ThrowsAsync<HttpRequestException>(() =>
             client.GetUserReposts("soundcloud:users:1", "token", null));
     }
+
+    private SoundCloudClient Build(MockHttpMessageHandler mock) => new(
+        new HttpClient(mock), _config,
+        new SoundCloudRateLimiter(4), new RetryPolicy(1, TimeSpan.FromMilliseconds(1)));
+
+    private const string TokenJson = """
+        {"access_token":"at","refresh_token":"rt","expires_in":3600,"scope":"non-expiring"}
+        """;
+
+    [Fact]
+    public async Task ExchangeCodeForToken_PostsAuthorizationCodeGrant()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Post, "https://secure.soundcloud.com/oauth/token")
+            .WithFormData(new Dictionary<string, string>
+            {
+                ["grant_type"] = "authorization_code",
+                ["client_id"] = "cid",
+                ["client_secret"] = "csec",
+                ["redirect_uri"] = "http://cb",
+                ["code_verifier"] = "ver",
+                ["code"] = "abc",
+            })
+            .Respond("application/json", TokenJson);
+
+        var result = await Build(mock).ExchangeCodeForToken("abc", "ver", "http://cb");
+
+        Assert.Equal("at", result.AccessToken);
+        Assert.Equal("rt", result.RefreshToken);
+        Assert.Equal(3600, result.ExpiresIn);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task ExchangeCodeForToken_ThrowsOnNonSuccess()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Post, "https://secure.soundcloud.com/oauth/token")
+            .Respond(HttpStatusCode.BadRequest);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            Build(mock).ExchangeCodeForToken("bad", "ver", "http://cb"));
+    }
+
+    [Fact]
+    public async Task RefreshAccessToken_PostsRefreshTokenGrant()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Post, "https://secure.soundcloud.com/oauth/token")
+            .WithFormData(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = "cid",
+                ["client_secret"] = "csec",
+                ["refresh_token"] = "old_rt",
+            })
+            .Respond("application/json", TokenJson);
+
+        var result = await Build(mock).RefreshAccessToken("old_rt");
+
+        Assert.Equal("at", result.AccessToken);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task RefreshAccessToken_ThrowsOnNonSuccess()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Post, "https://secure.soundcloud.com/oauth/token")
+            .Respond(HttpStatusCode.Unauthorized);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => Build(mock).RefreshAccessToken("rt"));
+    }
+
+    [Fact]
+    public async Task SignOut_PostsAccessTokenAsJson()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Post, "https://secure.soundcloud.com/sign-out")
+            .WithContent("""{"access_token":"tok"}""")
+            .Respond(HttpStatusCode.OK);
+
+        await Build(mock).SignOut("tok");
+
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task SignOut_ThrowsOnNonSuccess()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Post, "https://secure.soundcloud.com/sign-out")
+            .Respond(HttpStatusCode.InternalServerError);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => Build(mock).SignOut("tok"));
+    }
+
+    [Fact]
+    public async Task GetMe_SendsOAuthHeaderAndDeserializesUser()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/me")
+            .WithHeaders("Authorization", "OAuth token")
+            .Respond("application/json", """{"urn":"soundcloud:users:9","username":"me"}""");
+
+        var me = await Build(mock).GetMe("token");
+
+        Assert.Equal("soundcloud:users:9", me.Urn);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task GetFeedTracks_UsesNextHrefWhenProvided()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/me/feed/tracks?cursor=xyz")
+            .Respond("application/json", """{"collection":[],"next_href":null}""");
+
+        var result = await Build(mock).GetFeedTracks("token", 200, "https://api.soundcloud.com/me/feed/tracks?cursor=xyz");
+
+        Assert.Empty(result.Collection);
+        mock.VerifyNoOutstandingExpectation();
+    }
 }

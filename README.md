@@ -51,7 +51,7 @@ The backend authenticates with SoundCloud via OAuth 2.1 + PKCE, fetches the user
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js](https://nodejs.org/) (v20+)
+- [Bun](https://bun.sh/) (v1.2+)
 
 ## Quick Start
 
@@ -119,7 +119,7 @@ Or start each service manually:
 cd backend && dotnet run --project src/SoundCloudDigger.Api
 
 # Terminal 2 — Frontend (port 5173)
-cd frontend && npm run dev
+cd frontend && bun run dev
 ```
 
 Open `http://scdigger.localhost:5173` and click "Log in with SoundCloud."
@@ -135,17 +135,18 @@ dotnet test
 rm -rf tests/SoundCloudDigger.Tests/TestResults && \
   dotnet test --collect:"XPlat Code Coverage" \
     --settings tests/SoundCloudDigger.Tests/coverlet.runsettings && \
-  ./check-coverage.sh     # fails under 75% line / 60% branch
+  ./check-coverage.sh     # fails under 80% line / 80% branch
 
 # Frontend
 cd frontend
-npm test                 # run the suite once
-npm run test:coverage    # run with coverage report (fails under 80%)
+bun run check            # svelte-check (type-check .ts and .svelte)
+bun run test             # run the suite once
+bun run test:coverage    # run with coverage report (fails under 80%)
 ```
 
 The frontend coverage threshold is 80% across statements, branches, functions, and lines, enforced by `vitest --coverage`. The HTML report is written to `frontend/coverage/`.
 
-The backend threshold is 75% line / 60% branch, enforced by `backend/check-coverage.sh` reading the cobertura XML produced by coverlet. `Program.cs`, `EnvFileLoader`, `SetupController`, migrations, and the `Db` bootstrap helper are excluded via `coverlet.runsettings`.
+The backend threshold is 80% line / 80% branch, enforced by `backend/check-coverage.sh` reading the cobertura XML produced by coverlet. `Program.cs`, `EnvFileLoader`, `SetupController`, migrations, and the `Db` bootstrap helper are excluded via `coverlet.runsettings`.
 
 ## Project structure
 

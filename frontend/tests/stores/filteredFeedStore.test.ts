@@ -291,4 +291,15 @@ describe('filterAndSort', () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].title).toBe('RecentFeed');
 	});
+
+	it('dedupes tracks that share a permalinkUrl', () => {
+		const tracks = [
+			makeTrack({ title: 'First', permalinkUrl: 'https://sc/x' }),
+			makeTrack({ title: 'Dup', permalinkUrl: 'https://sc/x' }),
+			makeTrack({ title: 'Other', permalinkUrl: 'https://sc/y' }),
+		];
+
+		const result = filterAndSort(tracks, 'date', 'all', [], null, null);
+		expect(result.map((t) => t.title).sort()).toEqual(['First', 'Other']);
+	});
 });

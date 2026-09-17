@@ -20,7 +20,8 @@ public class SchemaMigratorTests
     [Fact]
     public void Migrate_AppliesMigrationsInOrder()
     {
-        using var conn = Db.OpenInMemory();
+        using var db = Db.InMemory();
+        using var conn = db.Open();
         var applied = new List<int>();
         var migrations = new IMigration[]
         {
@@ -36,7 +37,8 @@ public class SchemaMigratorTests
     [Fact]
     public void Migrate_SkipsAlreadyAppliedMigrations()
     {
-        using var conn = Db.OpenInMemory();
+        using var db = Db.InMemory();
+        using var conn = db.Open();
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "PRAGMA user_version=1;";
@@ -57,7 +59,8 @@ public class SchemaMigratorTests
     [Fact]
     public void Migrate_UpdatesUserVersion()
     {
-        using var conn = Db.OpenInMemory();
+        using var db = Db.InMemory();
+        using var conn = db.Open();
         var migrations = new IMigration[] { new NoopMigration(1, _ => { }) };
 
         SchemaMigrator.Migrate(conn, migrations);
@@ -71,7 +74,8 @@ public class SchemaMigratorTests
     [Fact]
     public void Migrate_ThrowsOnNonSequentialVersions()
     {
-        using var conn = Db.OpenInMemory();
+        using var db = Db.InMemory();
+        using var conn = db.Open();
         var migrations = new IMigration[]
         {
             new NoopMigration(1, _ => { }),

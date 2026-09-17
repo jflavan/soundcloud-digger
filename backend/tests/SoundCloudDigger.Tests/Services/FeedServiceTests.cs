@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Moq;
 using SoundCloudDigger.Api.Models;
 using SoundCloudDigger.Api.Services;
@@ -11,14 +10,13 @@ public class FeedServiceTests : IDisposable
 {
     private readonly Mock<ISoundCloudClient> _mockClient = new();
     private readonly Mock<ITokenService> _mockTokenService = new();
-    private readonly SqliteConnection _db;
+    private readonly Db _db;
     private readonly FeedCache _cache;
     private readonly FeedService _sut;
 
     public FeedServiceTests()
     {
-        _db = Db.OpenInMemory();
-        SchemaMigrator.Migrate(_db, new IMigration[] { new V1_InitialSchema(), new V2_ArtistFullResetAt() });
+        _db = TestDb.Create();
         var store = new SessionStore(_db);
         store.Create("s1", "u1", "at", "rt", DateTimeOffset.UtcNow.AddHours(1));
         _cache = new FeedCache(_db, store);
@@ -124,6 +122,7 @@ public class FeedServiceTests : IDisposable
         await _sut.StartFetchAsync("s1");
 
         Assert.Empty(_cache.GetTracks("s1"));
+        Assert.False(_cache.IsLoadingComplete("s1"));
         _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 
@@ -159,5 +158,110 @@ public class FeedServiceTests : IDisposable
 
         Assert.Single(_cache.GetTracks("s1"));
         _mockTokenService.Verify(t => t.UpdateTokens("s1", "new_token", "new_refresh", 3600));
+    }
+
+    [Fact]
+    public async Task Refresh_NoToken_DoesNotFetch()
+    {
+        _mockTokenService.Setup(t => t.Get("s1")).Returns((ValueTuple<string, string>?)null);
+
+        await _sut.RefreshAsync("s1");
+
+        _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_AddsNewTracksAndStopsAtFirstKnownPermalink()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _cache.AddTracks("s1", [FeedTrack.FromActivity(MakeResponse([("Known", now, 1)]).Collection[0])]);
+
+        // Page 1: two new tracks then the known one; page 2 must never be requested.
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(MakeResponse([("New A", now, 10), ("New B", now, 20), ("Known", now, 1)], "https://next-page"));
+
+        await _sut.RefreshAsync("s1");
+
+        var titles = _cache.GetTracks("s1").Select(t => t.Title).ToList();
+        Assert.Contains("New A", titles);
+        Assert.Contains("New B", titles);
+        Assert.Equal(3, titles.Count);
+        _mockClient.Verify(c => c.GetFeedTracks("token", 200, "https://next-page"), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_PaginatesUntilNextHrefIsNull_WhenNothingKnown()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(MakeResponse([("A", now, 10)], "https://next-page"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, "https://next-page"))
+            .ReturnsAsync(MakeResponse([("B", now, 20)]));
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Equal(2, _cache.GetTracks("s1").Count);
+    }
+
+    [Fact]
+    public async Task Refresh_StopsOnEmptyPage()
+    {
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(new SoundCloudActivitiesResponse { Collection = [], NextHref = "https://next-page" });
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Empty(_cache.GetTracks("s1"));
+        _mockClient.Verify(c => c.GetFeedTracks("token", 200, "https://next-page"), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_SwallowsHttpErrorAndKeepsExistingTracks()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _cache.AddTracks("s1", [FeedTrack.FromActivity(MakeResponse([("Known", now, 1)]).Collection[0])]);
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ThrowsAsync(new HttpRequestException("boom", null, System.Net.HttpStatusCode.InternalServerError));
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Single(_cache.GetTracks("s1"));
+    }
+
+    [Fact]
+    public async Task StartFetch_FallsBackToSessionStoreWhenInMemoryTokenExpired()
+    {
+        var now = DateTime.UtcNow;
+        var store = new SessionStore(_db);
+        var sut = new FeedService(_mockClient.Object, _cache, _mockTokenService.Object, store);
+
+        _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(true);
+        _mockTokenService.Setup(t => t.GetValidAccessTokenAsync("u1")).ReturnsAsync("persisted_token");
+        _mockClient.Setup(c => c.GetFeedTracks("persisted_token", 200, null))
+            .ReturnsAsync(MakeResponse([("Track A", now, 100)]));
+
+        await sut.StartFetchAsync("s1");
+
+        Assert.Single(_cache.GetTracks("s1"));
+        _mockClient.Verify(c => c.RefreshAccessToken(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task StartFetch_RefreshFailure_LeavesFeedIncompleteSoSelfHealRetries()
+    {
+        _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(true);
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.RefreshAccessToken("refresh"))
+            .ThrowsAsync(new HttpRequestException("refresh failed"));
+
+        await _sut.StartFetchAsync("s1");
+
+        Assert.Empty(_cache.GetTracks("s1"));
+        Assert.False(_cache.IsLoadingComplete("s1"));
+        _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 }

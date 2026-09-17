@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Microsoft.Data.Sqlite;
 using SoundCloudDigger.Api.Models;
 
 namespace SoundCloudDigger.Api.Services;
@@ -9,7 +8,6 @@ public class DiscoverFeedService : IDiscoverFeedService
     private static readonly TimeSpan ArtistTtl = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan CooldownTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FullResetInterval = TimeSpan.FromDays(7);
-    private readonly SqliteConnection _conn;
     private readonly ISoundCloudClient _client;
     private readonly ITokenService _tokens;
     private readonly IFollowingsService _followings;
@@ -17,13 +15,12 @@ public class DiscoverFeedService : IDiscoverFeedService
     private readonly ConcurrentDictionary<string, byte> _inFlight = new();
 
     public DiscoverFeedService(
-        SqliteConnection conn,
         ISoundCloudClient client,
         ITokenService tokens,
         IFollowingsService followings,
         DiscoverRepository repo)
     {
-        _conn = conn; _client = client; _tokens = tokens;
+        _client = client; _tokens = tokens;
         _followings = followings; _repo = repo;
     }
 
@@ -104,11 +101,11 @@ public class DiscoverFeedService : IDiscoverFeedService
                         break;
                     }
 
-                    var createdAtIso = new DateTimeOffset(track.CreatedAt, TimeSpan.Zero).ToString("o");
-                    var feedTrack = FeedTrack.FromTrack(track, createdAtIso);
+                    var feedTrack = FeedTrack.FromTrack(track, track.CreatedAt);
                     // Decrement by position so in-batch ordering still sorts newest-first,
-                    // matching the order SoundCloud returns reposts in.
-                    var reposted = observedAt.AddMilliseconds(-position);
+                    // matching the order SoundCloud returns reposts in. Whole seconds, because
+                    // reposted_at is stored as unix seconds — sub-second offsets would truncate away.
+                    var reposted = observedAt.AddSeconds(-position);
                     _repo.UpsertTrackAndRepost(artistUrn, feedTrack, reposted);
                     seenUrns?.Add(track.PermalinkUrl);
                     position++;
