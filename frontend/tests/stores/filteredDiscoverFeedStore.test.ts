@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { filterAndSortDiscover } from '$lib/stores/filteredDiscoverFeedStore';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { get } from 'svelte/store';
+import { filterAndSortDiscover, hiddenUnplayableDiscoverCount } from '$lib/stores/filteredDiscoverFeedStore';
+import { discoverFeedStore } from '$lib/stores/discoverFeedStore';
+import { hideUnplayable } from '$lib/stores/filterStore';
 import type { DiscoverTrack } from '$lib/types';
 
 function makeTrack(opts: Partial<DiscoverTrack> = {}): DiscoverTrack {
@@ -137,5 +140,47 @@ describe('filterAndSortDiscover', () => {
 		];
 		const out = filterAndSortDiscover(tracks, 'date', 'all', [], null, null);
 		expect(out.map((t) => t.title)).toEqual(['Same', 'Other']);
+	});
+
+	it('hides Go+-only (non-playable) tracks when hideUnplayable is set', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'free', access: 'playable' }),
+			makeTrack({ permalinkUrl: 'goplus', access: 'preview' }),
+		];
+		const out = filterAndSortDiscover(tracks, 'date', 'all', [], null, null, 'feed', [], true);
+		expect(out.map((t) => t.permalinkUrl)).toEqual(['free']);
+	});
+
+	it('keeps non-playable tracks by default', () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'free', access: 'playable' }),
+			makeTrack({ permalinkUrl: 'goplus', access: 'preview' }),
+		];
+		expect(filterAndSortDiscover(tracks, 'date', 'all', [], null, null)).toHaveLength(2);
+	});
+});
+
+describe('hiddenUnplayableDiscoverCount', () => {
+	afterEach(() => {
+		discoverFeedStore.stop();
+		vi.unstubAllGlobals();
+		hideUnplayable.set(false);
+	});
+
+	it('counts non-playable tracks in the discover feed while hiding is on', async () => {
+		const tracks = [
+			makeTrack({ permalinkUrl: 'a', access: 'playable' }),
+			makeTrack({ permalinkUrl: 'b', access: 'preview' }),
+		];
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ tracks, totalCount: 2, loadingComplete: true, lastRefreshedAt: null, progress: 1 }),
+		}));
+		hideUnplayable.set(true);
+		discoverFeedStore.start();
+		await vi.waitFor(() => expect(get(hiddenUnplayableDiscoverCount)).toBe(1));
+
+		hideUnplayable.set(false);
+		expect(get(hiddenUnplayableDiscoverCount)).toBe(0);
 	});
 });

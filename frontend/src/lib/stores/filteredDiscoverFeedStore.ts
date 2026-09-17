@@ -8,7 +8,9 @@ import {
 	durationMin,
 	durationMax,
 	timeField,
+	hideUnplayable,
 } from './filterStore';
+import { isPlayable, countUnplayable } from '$lib/utils/playability';
 import type { DiscoverTrack, DiscoverSortBy, TimeRange, TimeField } from '$lib/types';
 
 const TIME_RANGE_MS: Record<TimeRange, number> = {
@@ -26,7 +28,8 @@ export function filterAndSortDiscover(
 	durMin: number | null,
 	durMax: number | null,
 	field: TimeField = 'feed',
-	excluded: string[] = []
+	excluded: string[] = [],
+	hideNonPlayable = false
 ): DiscoverTrack[] {
 	const now = Date.now();
 	const cutoff = TIME_RANGE_MS[range];
@@ -46,6 +49,10 @@ export function filterAndSortDiscover(
 
 	if (excluded.length > 0) {
 		filtered = filtered.filter((t) => t.genre === null || !excluded.includes(t.genre));
+	}
+
+	if (hideNonPlayable) {
+		filtered = filtered.filter(isPlayable);
 	}
 
 	if (durMin !== null) {
@@ -95,8 +102,9 @@ export const filteredDiscover = derived(
 		durationMin,
 		durationMax,
 		timeField,
+		hideUnplayable,
 	],
-	([$discover, $sortBy, $timeRange, $genres, $excluded, $durMin, $durMax, $timeField]) =>
+	([$discover, $sortBy, $timeRange, $genres, $excluded, $durMin, $durMax, $timeField, $hide]) =>
 		filterAndSortDiscover(
 			$discover.tracks,
 			$sortBy,
@@ -105,8 +113,15 @@ export const filteredDiscover = derived(
 			$durMin,
 			$durMax,
 			$timeField,
-			$excluded
+			$excluded,
+			$hide
 		)
+);
+
+/** How many discover tracks the hideUnplayable filter is currently removing. */
+export const hiddenUnplayableDiscoverCount = derived(
+	[discoverFeedStore, hideUnplayable],
+	([$discover, $hide]) => ($hide ? countUnplayable($discover.tracks) : 0)
 );
 
 export const availableDiscoverGenres = derived(discoverFeedStore, ($discover) => {

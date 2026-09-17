@@ -2,8 +2,10 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fetchFeed } from '$lib/api';
 	import { feedTracks, loadingComplete, totalCount } from '$lib/stores/feedStore';
-	import { filteredFeed } from '$lib/stores/filteredFeedStore';
-	import { filteredDiscover } from '$lib/stores/filteredDiscoverFeedStore';
+	import { filteredFeed, hiddenUnplayableFeedCount } from '$lib/stores/filteredFeedStore';
+	import { filteredDiscover, hiddenUnplayableDiscoverCount } from '$lib/stores/filteredDiscoverFeedStore';
+	import { hideUnplayable } from '$lib/stores/filterStore';
+	import { showToast } from '$lib/stores/toastStore';
 	import { feedSource } from '$lib/stores/feedSource';
 	import { discoverFeedStore } from '$lib/stores/discoverFeedStore';
 	import FeedTabs from '$lib/components/FeedTabs.svelte';
@@ -11,6 +13,7 @@
 	import TrackList from '$lib/components/TrackList.svelte';
 	import LoadingIndicator from '$lib/components/LoadingIndicator.svelte';
 	import BottomPlayer from '$lib/components/BottomPlayer.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	import { buildShuffleQueue } from '$lib/stores/shuffleQueue';
 
 	let error = $state('');
@@ -23,6 +26,28 @@
 	let shuffleIndex = $state(-1);
 
 	const activeList = $derived($feedSource === 'discover' ? $filteredDiscover : $filteredFeed);
+
+	// Tell the user once per source when the (opt-in) preview-only filter hid
+	// tracks, after that source has finished loading so the count is final.
+	const hiddenUnplayableCount = $derived(
+		$feedSource === 'discover' ? $hiddenUnplayableDiscoverCount : $hiddenUnplayableFeedCount
+	);
+	const activeSourceLoaded = $derived(
+		$feedSource === 'discover' ? $discoverFeedStore.loadingComplete : $loadingComplete
+	);
+	const unplayableNoticeShown = new Set<string>();
+	$effect(() => {
+		const source = $feedSource;
+		const n = hiddenUnplayableCount;
+		if (n === 0 || !activeSourceLoaded || unplayableNoticeShown.has(source)) return;
+		unplayableNoticeShown.add(source);
+		showToast(
+			n === 1
+				? '1 preview-only track hidden — the full version plays on SoundCloud.'
+				: `${n} preview-only tracks hidden — full versions play on SoundCloud.`,
+			{ actionLabel: 'Show anyway', onAction: () => hideUnplayable.set(false) }
+		);
+	});
 
 	const selectedTrack = $derived(
 		selectedUrl ? activeList.find((t) => t.permalinkUrl === selectedUrl) ?? null : null
@@ -214,6 +239,8 @@
 
 	<TrackList tracks={activeList} {selectedUrl} onselect={selectTrack} />
 </div>
+
+<Toast />
 
 <div class="fab-group" class:has-player={selectedTrack !== null}>
 	<button

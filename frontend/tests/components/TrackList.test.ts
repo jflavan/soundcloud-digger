@@ -39,4 +39,14 @@ describe('TrackList', () => {
 		expect(screen.getByText('Track A')).toBeTruthy();
 		expect(screen.getByText('Track B')).toBeTruthy();
 	});
+
+	it('badges preview-only tracks and leaves playable ones unbadged', () => {
+		render(TrackList, { props: { tracks: [
+			makeTrack({ title: 'Snippet', permalinkUrl: 'https://soundcloud.com/snippet', access: 'preview' }),
+			makeTrack({ title: 'Full', permalinkUrl: 'https://soundcloud.com/full', access: 'playable' }),
+		] } });
+		const badges = screen.getAllByText('Preview');
+		expect(badges).toHaveLength(1);
+		expect(badges[0].closest('.track-row')?.textContent).toContain('Snippet');
+	});
 });

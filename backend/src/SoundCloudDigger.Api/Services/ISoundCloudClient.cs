@@ -11,4 +11,10 @@ public interface ISoundCloudClient
     Task<SoundCloudUsersResponse> GetFollowings(string accessToken, string? nextHref = null);
     Task<SoundCloudRepostsResponse> GetUserReposts(string userUrn, string accessToken, string? nextHref = null);
     Task<SoundCloudUser> GetMe(string accessToken);
+
+    /// <summary>Resolves a track permalink to its URN, or null if SoundCloud can't find it.</summary>
+    Task<string?> ResolveTrackUrn(string permalinkUrl, string accessToken);
+    Task<SoundCloudStreams> GetTrackStreams(string trackUrn, string accessToken);
+    /// <summary>Follows a stream URL one hop to its signed CDN location; null if it didn't redirect.</summary>
+    Task<string?> GetStreamRedirect(string streamUrl, string accessToken);
 }

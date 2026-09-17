@@ -25,6 +25,9 @@ builder.Services.AddHttpClient<ISoundCloudClient, SoundCloudClient>()
     {
         EnableMultipleHttp2Connections = true,
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        // /resolve and /streams answer with 302s whose Location we need to read
+        // ourselves (see SoundCloudClient.AuthedRedirect). Nothing else redirects.
+        AllowAutoRedirect = false,
     });
 builder.Services.AddSingleton<Db>(_ =>
 {

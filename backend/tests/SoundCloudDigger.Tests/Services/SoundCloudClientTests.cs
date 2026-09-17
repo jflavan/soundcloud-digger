@@ -181,4 +181,83 @@ public class SoundCloudClientTests
         Assert.Empty(result.Collection);
         mock.VerifyNoOutstandingExpectation();
     }
+
+    [Fact]
+    public async Task ResolveTrackUrn_ReadsTheUrnFromTheRedirectLocation()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/resolve")
+            .WithQueryString("url", "https://soundcloud.com/artist/song")
+            .WithHeaders("Authorization", "OAuth token")
+            .Respond(_ =>
+            {
+                var r = new HttpResponseMessage(HttpStatusCode.Found);
+                r.Headers.Location = new Uri("https://api.soundcloud.com/tracks/soundcloud:tracks:123");
+                return r;
+            });
+
+        var urn = await Build(mock).ResolveTrackUrn("https://soundcloud.com/artist/song", "token");
+
+        Assert.Equal("soundcloud:tracks:123", urn);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task ResolveTrackUrn_StripsTrackingQueryAndReturnsNullOnNotFound()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/resolve")
+            .WithQueryString("url", "https://soundcloud.com/artist/gone")
+            .Respond(HttpStatusCode.NotFound);
+
+        var urn = await Build(mock).ResolveTrackUrn("https://soundcloud.com/artist/gone?utm_source=api", "token");
+
+        Assert.Null(urn);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task GetTrackStreams_DeserializesStreamUrls()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams")
+            .WithHeaders("Authorization", "OAuth token")
+            .Respond("application/json", """{"preview_mp3_128_url":"https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams/abc"}""");
+
+        var streams = await Build(mock).GetTrackStreams("soundcloud:tracks:123", "token");
+
+        Assert.Null(streams.HttpMp3128Url);
+        Assert.Equal("https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams/abc", streams.PreviewMp3128Url);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task GetStreamRedirect_ReturnsTheSignedCdnLocation()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, "https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams/abc")
+            .WithHeaders("Authorization", "OAuth token")
+            .Respond(_ =>
+            {
+                var r = new HttpResponseMessage(HttpStatusCode.Found);
+                r.Headers.Location = new Uri("https://cf-preview-media.sndcdn.com/p.mp3?Policy=x&Signature=y");
+                return r;
+            });
+
+        var cdn = await Build(mock).GetStreamRedirect("https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams/abc", "token");
+
+        Assert.Equal("https://cf-preview-media.sndcdn.com/p.mp3?Policy=x&Signature=y", cdn);
+    }
+
+    [Fact]
+    public async Task GetStreamRedirect_ReturnsNullWhenNotRedirected()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, "https://api.soundcloud.com/tracks/*/streams/*")
+            .Respond(HttpStatusCode.NotFound);
+
+        var cdn = await Build(mock).GetStreamRedirect("https://api.soundcloud.com/tracks/soundcloud:tracks:123/streams/abc", "token");
+
+        Assert.Null(cdn);
+    }
 }
