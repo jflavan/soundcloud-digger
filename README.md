@@ -135,17 +135,18 @@ dotnet test
 rm -rf tests/SoundCloudDigger.Tests/TestResults && \
   dotnet test --collect:"XPlat Code Coverage" \
     --settings tests/SoundCloudDigger.Tests/coverlet.runsettings && \
-  ./check-coverage.sh     # fails under 75% line / 60% branch
+  ./check-coverage.sh     # fails under 80% line / 80% branch
 
 # Frontend
 cd frontend
+bun run check            # svelte-check (type-check .ts and .svelte)
 bun run test             # run the suite once
 bun run test:coverage    # run with coverage report (fails under 80%)
 ```
 
 The frontend coverage threshold is 80% across statements, branches, functions, and lines, enforced by `vitest --coverage`. The HTML report is written to `frontend/coverage/`.
 
-The backend threshold is 75% line / 60% branch, enforced by `backend/check-coverage.sh` reading the cobertura XML produced by coverlet. `Program.cs`, `EnvFileLoader`, `SetupController`, migrations, and the `Db` bootstrap helper are excluded via `coverlet.runsettings`.
+The backend threshold is 80% line / 80% branch, enforced by `backend/check-coverage.sh` reading the cobertura XML produced by coverlet. `Program.cs`, `EnvFileLoader`, `SetupController`, migrations, and the `Db` bootstrap helper are excluded via `coverlet.runsettings`.
 
 ## Project structure
 

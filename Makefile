@@ -9,4 +9,5 @@ setup:
 
 test:
 	cd backend && dotnet test
+	cd frontend && bun run check
 	cd frontend && bun run test

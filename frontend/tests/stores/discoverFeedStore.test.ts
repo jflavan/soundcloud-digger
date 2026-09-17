@@ -17,7 +17,7 @@ describe('discoverFeedStore', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.resetModules();
-		global.fetch = vi.fn();
+		globalThis.fetch = vi.fn();
 	});
 
 	afterEach(() => {
@@ -39,7 +39,7 @@ describe('discoverFeedStore', () => {
 	it('fetches from /api/feed/discover on start()', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: true,
 			json: async () => ({
 				tracks: [
@@ -101,7 +101,7 @@ describe('discoverFeedStore', () => {
 			}),
 		});
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse());
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse());
 
 		discoverFeedStore.start();
 		await flushMicrotasks();
@@ -119,7 +119,7 @@ describe('discoverFeedStore', () => {
 	it('stop() halts polling', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
 			json: async () => ({
 				tracks: [],
@@ -142,7 +142,7 @@ describe('discoverFeedStore', () => {
 	it('sets error state on failed fetch', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: false,
 			status: 500,
 			json: async () => ({}),
@@ -168,7 +168,7 @@ describe('discoverFeedStore', () => {
 			progress: 1.0,
 		};
 
-		(global.fetch as ReturnType<typeof vi.fn>)
+		(globalThis.fetch as ReturnType<typeof vi.fn>)
 			.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) }) // POST /refresh
 			.mockResolvedValueOnce({ ok: true, json: async () => feedResponse }); // GET /discover
 
@@ -186,7 +186,7 @@ describe('discoverFeedStore', () => {
 	it('refresh() returns { enqueued: false, retryAfterSec } on 429', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: false,
 			status: 429,
 			json: async () => ({ retryAfterSec: 87 }),
@@ -201,7 +201,7 @@ describe('discoverFeedStore', () => {
 	it('refresh() returns { enqueued: false, error } on non-429 error', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
 			ok: false,
 			status: 503,
 			json: async () => ({}),
@@ -223,7 +223,7 @@ describe('discoverFeedStore', () => {
 	it('tick error with non-Error thrown value falls back to String(e)', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('plain string');
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('plain string');
 
 		discoverFeedStore.start();
 		await flushMicrotasks();
@@ -235,7 +235,7 @@ describe('discoverFeedStore', () => {
 	it('refresh() with non-Error thrown value falls back to String(e)', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('boom');
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce('boom');
 
 		const result = await discoverFeedStore.refresh();
 
@@ -246,7 +246,7 @@ describe('discoverFeedStore', () => {
 	it('start() is idempotent — calling twice does not double-poll', async () => {
 		const { discoverFeedStore } = await loadStore();
 
-		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+		(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
 			json: async () => ({
 				tracks: [],

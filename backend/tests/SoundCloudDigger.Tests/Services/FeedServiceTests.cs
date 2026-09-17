@@ -160,4 +160,109 @@ public class FeedServiceTests : IDisposable
         Assert.Single(_cache.GetTracks("s1"));
         _mockTokenService.Verify(t => t.UpdateTokens("s1", "new_token", "new_refresh", 3600));
     }
+
+    [Fact]
+    public async Task Refresh_NoToken_DoesNotFetch()
+    {
+        _mockTokenService.Setup(t => t.Get("s1")).Returns((ValueTuple<string, string>?)null);
+
+        await _sut.RefreshAsync("s1");
+
+        _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_AddsNewTracksAndStopsAtFirstKnownPermalink()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _cache.AddTracks("s1", [FeedTrack.FromActivity(MakeResponse([("Known", now, 1)]).Collection[0])]);
+
+        // Page 1: two new tracks then the known one; page 2 must never be requested.
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(MakeResponse([("New A", now, 10), ("New B", now, 20), ("Known", now, 1)], "https://next-page"));
+
+        await _sut.RefreshAsync("s1");
+
+        var titles = _cache.GetTracks("s1").Select(t => t.Title).ToList();
+        Assert.Contains("New A", titles);
+        Assert.Contains("New B", titles);
+        Assert.Equal(3, titles.Count);
+        _mockClient.Verify(c => c.GetFeedTracks("token", 200, "https://next-page"), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_PaginatesUntilNextHrefIsNull_WhenNothingKnown()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(MakeResponse([("A", now, 10)], "https://next-page"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, "https://next-page"))
+            .ReturnsAsync(MakeResponse([("B", now, 20)]));
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Equal(2, _cache.GetTracks("s1").Count);
+    }
+
+    [Fact]
+    public async Task Refresh_StopsOnEmptyPage()
+    {
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ReturnsAsync(new SoundCloudActivitiesResponse { Collection = [], NextHref = "https://next-page" });
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Empty(_cache.GetTracks("s1"));
+        _mockClient.Verify(c => c.GetFeedTracks("token", 200, "https://next-page"), Times.Never);
+    }
+
+    [Fact]
+    public async Task Refresh_SwallowsHttpErrorAndKeepsExistingTracks()
+    {
+        var now = DateTime.UtcNow;
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _cache.AddTracks("s1", [FeedTrack.FromActivity(MakeResponse([("Known", now, 1)]).Collection[0])]);
+        _mockClient.Setup(c => c.GetFeedTracks("token", 200, null))
+            .ThrowsAsync(new HttpRequestException("boom", null, System.Net.HttpStatusCode.InternalServerError));
+
+        await _sut.RefreshAsync("s1");
+
+        Assert.Single(_cache.GetTracks("s1"));
+    }
+
+    [Fact]
+    public async Task StartFetch_FallsBackToSessionStoreWhenInMemoryTokenExpired()
+    {
+        var now = DateTime.UtcNow;
+        var store = new SessionStore(_db);
+        var sut = new FeedService(_mockClient.Object, _cache, _mockTokenService.Object, store);
+
+        _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(true);
+        _mockTokenService.Setup(t => t.GetValidAccessTokenAsync("u1")).ReturnsAsync("persisted_token");
+        _mockClient.Setup(c => c.GetFeedTracks("persisted_token", 200, null))
+            .ReturnsAsync(MakeResponse([("Track A", now, 100)]));
+
+        await sut.StartFetchAsync("s1");
+
+        Assert.Single(_cache.GetTracks("s1"));
+        _mockClient.Verify(c => c.RefreshAccessToken(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task StartFetch_RefreshFailure_ReturnsNoTokenAndMarksComplete()
+    {
+        _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(true);
+        _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
+        _mockClient.Setup(c => c.RefreshAccessToken("refresh"))
+            .ThrowsAsync(new HttpRequestException("refresh failed"));
+
+        await _sut.StartFetchAsync("s1");
+
+        Assert.Empty(_cache.GetTracks("s1"));
+        Assert.True(_cache.IsLoadingComplete("s1"));
+        _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
+    }
 }

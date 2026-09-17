@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MIN_LINE=${1:-75}
-MIN_BRANCH=${2:-60}
+MIN_LINE=${1:-80}
+MIN_BRANCH=${2:-80}
 
 REPORT=$(find tests/SoundCloudDigger.Tests/TestResults -name 'coverage.cobertura.xml' -print -quit)
 if [[ -z "${REPORT:-}" ]]; then
