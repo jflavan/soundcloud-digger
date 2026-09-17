@@ -104,11 +104,11 @@ public class DiscoverFeedService : IDiscoverFeedService
                         break;
                     }
 
-                    var createdAtIso = new DateTimeOffset(track.CreatedAt, TimeSpan.Zero).ToString("o");
-                    var feedTrack = FeedTrack.FromTrack(track, createdAtIso);
+                    var feedTrack = FeedTrack.FromTrack(track, track.CreatedAt);
                     // Decrement by position so in-batch ordering still sorts newest-first,
-                    // matching the order SoundCloud returns reposts in.
-                    var reposted = observedAt.AddMilliseconds(-position);
+                    // matching the order SoundCloud returns reposts in. Whole seconds, because
+                    // reposted_at is stored as unix seconds — sub-second offsets would truncate away.
+                    var reposted = observedAt.AddSeconds(-position);
                     _repo.UpsertTrackAndRepost(artistUrn, feedTrack, reposted);
                     seenUrns?.Add(track.PermalinkUrl);
                     position++;

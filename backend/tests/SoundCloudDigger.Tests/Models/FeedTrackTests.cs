@@ -67,23 +67,23 @@ public class FeedTrackTests
     }
 
     [Fact]
-    public void FromTrack_MapsFieldsAndParsesRepostedAt()
+    public void FromTrack_MapsFieldsAndAppearedAt()
     {
-        var t = FeedTrack.FromTrack(MakeTrack("\"deep house\" ambient"), "2026/04/03 10:00:00 +0000");
+        var appeared = new DateTime(2026, 4, 3, 10, 0, 0, DateTimeKind.Utc);
+        var t = FeedTrack.FromTrack(MakeTrack("\"deep house\" ambient"), appeared);
 
         Assert.Equal("Song", t.Title);
         Assert.Equal("track-repost", t.ActivityType);
         Assert.Equal(["deep house", "ambient"], t.Tags);
-        Assert.Equal(new DateTime(2026, 4, 3, 10, 0, 0, DateTimeKind.Utc), t.AppearedAt);
+        Assert.Equal(appeared, t.AppearedAt);
     }
 
     [Fact]
-    public void FromTrack_UsesEmptyStringFallbacksAndNowForUnparseableDate()
+    public void FromTrack_UsesEmptyStringFallbacks()
     {
         var track = new SoundCloudTrack { Title = null!, CreatedAt = DateTime.UtcNow };
-        var before = DateTime.UtcNow.AddSeconds(-1);
 
-        var t = FeedTrack.FromTrack(track, "not a date");
+        var t = FeedTrack.FromTrack(track, track.CreatedAt);
 
         Assert.Equal("", t.Title);
         Assert.Equal("", t.ArtistName);
@@ -92,7 +92,7 @@ public class FeedTrackTests
         Assert.Equal("", t.PermalinkUrl);
         Assert.Equal("playable", t.Access);
         Assert.Empty(t.Tags);
-        Assert.True(t.AppearedAt >= before);
+        Assert.Equal(track.CreatedAt, t.AppearedAt);
     }
 
     [Theory]

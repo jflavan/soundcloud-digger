@@ -124,6 +124,7 @@ public class FeedServiceTests : IDisposable
         await _sut.StartFetchAsync("s1");
 
         Assert.Empty(_cache.GetTracks("s1"));
+        Assert.False(_cache.IsLoadingComplete("s1"));
         _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 
@@ -252,7 +253,7 @@ public class FeedServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task StartFetch_RefreshFailure_ReturnsNoTokenAndMarksComplete()
+    public async Task StartFetch_RefreshFailure_LeavesFeedIncompleteSoSelfHealRetries()
     {
         _mockTokenService.Setup(t => t.IsExpired("s1")).Returns(true);
         _mockTokenService.Setup(t => t.Get("s1")).Returns(("token", "refresh"));
@@ -262,7 +263,7 @@ public class FeedServiceTests : IDisposable
         await _sut.StartFetchAsync("s1");
 
         Assert.Empty(_cache.GetTracks("s1"));
-        Assert.True(_cache.IsLoadingComplete("s1"));
+        Assert.False(_cache.IsLoadingComplete("s1"));
         _mockClient.Verify(c => c.GetFeedTracks(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 }

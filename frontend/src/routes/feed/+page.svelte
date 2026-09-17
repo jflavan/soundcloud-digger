@@ -133,7 +133,6 @@
 			if (complete) {
 				clearPoll();
 				startRefreshPoll();
-				discoverFeedStore.start();
 			}
 		}, 2000);
 	}
@@ -168,10 +167,14 @@
 	}
 
 	onMount(() => {
+		// Discover is served from SQLite and independent of the main feed fetch, so
+		// start polling it immediately — persisted results show up without waiting
+		// for a (possibly minutes-long) main feed load to finish.
+		discoverFeedStore.start();
+
 		pollFeed().then((complete) => {
 			if (complete) {
 				startRefreshPoll();
-				discoverFeedStore.start();
 			} else {
 				startLoadingPoll();
 			}

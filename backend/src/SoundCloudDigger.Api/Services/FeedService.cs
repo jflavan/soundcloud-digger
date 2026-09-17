@@ -31,10 +31,12 @@ public class FeedService : IFeedService
     {
         if (!_inFlight.TryAdd(sessionId, 0)) return;
 
+        var tokenAcquired = false;
         try
         {
             var accessToken = await GetValidAccessToken(sessionId);
             if (accessToken is null) return;
+            tokenAcquired = true;
 
             _cache.Clear(sessionId);
             var cutoff = DateTime.UtcNow.AddDays(-30);
@@ -78,9 +80,14 @@ public class FeedService : IFeedService
         }
         finally
         {
-            // Always mark complete so the UI isn't wedged on an unexpected failure —
-            // partial results are better than a perpetual loading spinner.
-            try { _cache.SetLoadingComplete(sessionId, true); } catch { }
+            // Mark complete even after a mid-fetch failure so the UI isn't wedged —
+            // partial results beat a perpetual spinner. But if we never got a token,
+            // leave it incomplete: an empty feed flagged "complete" would suppress the
+            // FeedController self-heal that retries the fetch on the next poll.
+            if (tokenAcquired)
+            {
+                try { _cache.SetLoadingComplete(sessionId, true); } catch { }
+            }
             _inFlight.TryRemove(sessionId, out _);
         }
     }
