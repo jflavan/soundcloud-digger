@@ -245,13 +245,78 @@ describe('BottomPlayer preview mode (tracks the widget cannot stream)', () => {
 		expect(api.fetchStreamUrl).toHaveBeenCalledWith('https://soundcloud.com/artist-slug/test-track');
 	});
 
-	it('explains that only a preview is available and links to the full track', async () => {
+	it('badges the preview and links to the full track', async () => {
 		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
 		render(BottomPlayer, { props: previewProps() });
 
 		const link = await screen.findByRole('link', { name: /Full track on SoundCloud/ });
 		expect((link as HTMLAnchorElement).href).toBe('https://soundcloud.com/artist-slug/test-track');
-		expect(screen.getByText(/30s preview/)).toBeTruthy();
+		expect(screen.getByText('Preview')).toBeTruthy();
+	});
+
+	it('uses a custom control instead of the native browser controls', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+
+		expect(container.querySelector('audio')!.hasAttribute('controls')).toBe(false);
+		expect(screen.getByRole('button', { name: 'Play preview' })).toBeTruthy();
+		expect(screen.getByRole('slider', { name: 'Seek' })).toBeTruthy();
+		// The bar's track-meta already shows the title; the control shows times like the embed.
+		expect(container.querySelector('.preview-elapsed')?.textContent).toBe('0:00');
+		expect(container.querySelector('.preview-total')?.textContent).toBe('0:00');
+	});
+
+	it('play button toggles playback and flips to a pause button', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+		const audio = container.querySelector('audio') as HTMLAudioElement;
+		Object.defineProperty(audio, 'paused', { value: true, configurable: true });
+		playSpy.mockClear();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Play preview' }));
+		expect(playSpy).toHaveBeenCalledOnce();
+
+		Object.defineProperty(audio, 'paused', { value: false, configurable: true });
+		audio.dispatchEvent(new Event('play'));
+		const pauseBtn = await screen.findByRole('button', { name: 'Pause preview' });
+		await fireEvent.click(pauseBtn);
+		expect(pauseSpy).toHaveBeenCalledOnce();
+	});
+
+	it('shows elapsed / total time and fills the progress bar as playback advances', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+		const audio = container.querySelector('audio') as HTMLAudioElement;
+
+		Object.defineProperty(audio, 'duration', { value: 30, configurable: true });
+		audio.dispatchEvent(new Event('durationchange'));
+		audio.currentTime = 7.4;
+		audio.dispatchEvent(new Event('timeupdate'));
+
+		await vi.waitFor(() => expect(container.querySelector('.preview-elapsed')?.textContent).toBe('0:07'));
+		expect(container.querySelector('.preview-total')?.textContent).toBe('0:30');
+		const fill = container.querySelector('.preview-progress-fill') as HTMLElement;
+		expect(parseFloat(fill.style.width)).toBeCloseTo((7.4 / 30) * 100, 1);
+	});
+
+	it('clicking the progress bar seeks proportionally', async () => {
+		vi.spyOn(api, 'fetchStreamUrl').mockResolvedValue({ url: 'https://cdn.example/preview.mp3', preview: true });
+		const { container } = render(BottomPlayer, { props: previewProps() });
+		await vi.waitFor(() => expect(container.querySelector('audio')).toBeTruthy());
+		const audio = container.querySelector('audio') as HTMLAudioElement;
+		Object.defineProperty(audio, 'duration', { value: 30, configurable: true });
+		audio.dispatchEvent(new Event('durationchange'));
+
+		const bar = screen.getByRole('slider', { name: 'Seek' });
+		bar.getBoundingClientRect = () => ({ left: 100, width: 200, top: 0, height: 3, right: 300, bottom: 3, x: 100, y: 0, toJSON: () => ({}) });
+		await fireEvent.click(bar, { clientX: 150 });
+		expect(audio.currentTime).toBeCloseTo(7.5, 5);
+
+		await fireEvent.keyDown(bar, { code: 'ArrowRight' });
+		expect(audio.currentTime).toBeCloseTo(17.5, 5);
 	});
 
 	it('advances to the next track when the preview ends', async () => {

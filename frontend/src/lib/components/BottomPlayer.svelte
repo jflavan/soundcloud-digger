@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FeedTrack } from '$lib/types';
-	import { resolvePlayerAction, isEditableTarget } from '$lib/utils/keyboardShortcuts';
+	import { resolvePlayerAction, isEditableTarget, SEEK_STEP_MS } from '$lib/utils/keyboardShortcuts';
 	import { isPlayable } from '$lib/utils/playability';
 	import { fetchStreamUrl } from '$lib/api';
 
@@ -34,6 +34,43 @@
 	let audioEl = $state<HTMLAudioElement | null>(null);
 	let previewSrc = $state<string | null>(null);
 	let previewError = $state(false);
+	// Mirrored from the <audio> element via bind:, drives the custom control.
+	let paused = $state(true);
+	let currentTime = $state(0);
+	let duration = $state(0);
+	const progressPct = $derived(duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0);
+
+	function formatTime(seconds: number): string {
+		if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+		const m = Math.floor(seconds / 60);
+		const sec = Math.floor(seconds % 60);
+		return `${m}:${sec.toString().padStart(2, '0')}`;
+	}
+
+	function togglePreview() {
+		if (!audioEl) return;
+		if (audioEl.paused) void audioEl.play();
+		else audioEl.pause();
+	}
+
+	function seekPreviewBy(deltaMs: number) {
+		if (!audioEl) return;
+		audioEl.currentTime = Math.max(0, audioEl.currentTime + deltaMs / 1000);
+	}
+
+	function seekPreviewTo(e: MouseEvent) {
+		if (!audioEl || !duration) return;
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+		audioEl.currentTime = ratio * duration;
+	}
+
+	function handleProgressKey(e: KeyboardEvent) {
+		if (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return;
+		e.preventDefault();
+		e.stopPropagation(); // the window-level shortcut would seek a second time
+		seekPreviewBy(e.code === 'ArrowRight' ? SEEK_STEP_MS : -SEEK_STEP_MS);
+	}
 
 	$effect(() => {
 		const url = track.permalinkUrl;
@@ -116,18 +153,12 @@
 		e.preventDefault();
 		switch (action.type) {
 			case 'toggle':
-				if (previewMode) {
-					if (audioEl) audioEl.paused ? void audioEl.play() : audioEl.pause();
-				} else {
-					widget?.toggle();
-				}
+				if (previewMode) togglePreview();
+				else widget?.toggle();
 				break;
 			case 'seek':
-				if (previewMode) {
-					if (audioEl) audioEl.currentTime = Math.max(0, audioEl.currentTime + action.deltaMs / 1000);
-				} else {
-					seekBy(action.deltaMs);
-				}
+				if (previewMode) seekPreviewBy(action.deltaMs);
+				else seekBy(action.deltaMs);
 				break;
 			case 'prev': onprev(); break;
 			case 'next': onnext(); break;
@@ -230,24 +261,57 @@
 
 		<div class="embed-section">
 			{#if previewMode}
+				<!-- Styled after the 20px SoundCloud mini embed: orange round play, grey title, progress. -->
 				<div class="preview-player">
 					{#if previewSrc}
 						<audio
 							bind:this={audioEl}
 							src={previewSrc}
-							controls
 							autoplay
 							preload="auto"
+							bind:paused
+							bind:currentTime
+							bind:duration
 							onended={onnext}
 							onerror={() => (previewError = true)}
 						></audio>
 					{/if}
-					<span class="preview-note">
-						{#if previewError}Preview unavailable · {:else if previewSrc}30s preview · {:else}Loading preview… {/if}
-						{#if track.permalinkUrl}
-							<a href={track.permalinkUrl} target="_blank" rel="noopener noreferrer">Full track on SoundCloud ↗</a>
+					<button
+						class="preview-play"
+						onclick={togglePreview}
+						disabled={!previewSrc}
+						aria-label={paused ? 'Play preview' : 'Pause preview'}
+						title={paused ? 'Play' : 'Pause'}
+					>
+						{#if paused}
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l14-8z"/></svg>
+						{:else}
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
 						{/if}
-					</span>
+					</button>
+					{#if previewSrc}
+						<span class="preview-elapsed">{formatTime(currentTime)}</span>
+					{:else}
+						<span class="preview-status">{previewError ? 'Preview unavailable' : 'Loading preview…'}</span>
+					{/if}
+					<div
+						class="preview-progress"
+						role="slider"
+						aria-label="Seek"
+						aria-valuemin="0"
+						aria-valuemax={Math.round(duration)}
+						aria-valuenow={Math.round(currentTime)}
+						tabindex="0"
+						onclick={seekPreviewTo}
+						onkeydown={handleProgressKey}
+					>
+						<div class="preview-progress-fill" style="width: {progressPct}%"></div>
+					</div>
+					<span class="preview-total">{formatTime(duration)}</span>
+					<span class="preview-badge">Preview</span>
+					{#if track.permalinkUrl}
+						<a class="preview-link" href={track.permalinkUrl} target="_blank" rel="noopener noreferrer">Full track on SoundCloud ↗</a>
+					{/if}
 				</div>
 			{:else}
 				{#key track.permalinkUrl}
@@ -407,28 +471,94 @@
 	.preview-player {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 10px;
+		height: 20px;
 		min-width: 0;
 	}
 
-	.preview-player audio {
-		flex: 1;
-		min-width: 0;
-		height: 32px;
+	.preview-play {
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		border: none;
+		padding: 0;
+		background: #f50;
+		color: #fff;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		flex-shrink: 0;
+		transition: background 0.15s;
 	}
 
-	.preview-note {
-		color: #888;
+	.preview-play:hover {
+		background: #ff6a1a;
+	}
+
+	.preview-play:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	/* Mirrors the embed while playing: elapsed in orange left of the bar, total in grey right of it. */
+	.preview-elapsed,
+	.preview-total,
+	.preview-status {
 		font-size: 11px;
+		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
 
-	.preview-note a {
+	.preview-elapsed {
 		color: #f50;
-		text-decoration: none;
 	}
 
-	.preview-note a:hover {
+	.preview-total,
+	.preview-status {
+		color: #999;
+	}
+
+	.preview-progress {
+		flex: 1;
+		min-width: 60px;
+		height: 3px;
+		background: #333;
+		border-radius: 2px;
+		cursor: pointer;
+	}
+
+	.preview-progress:focus-visible {
+		outline: 1px solid #f50;
+		outline-offset: 4px;
+	}
+
+	.preview-progress-fill {
+		height: 100%;
+		background: #f50;
+		border-radius: 2px;
+	}
+
+	.preview-badge {
+		padding: 1px 6px;
+		border: 1px solid #f50;
+		border-radius: 3px;
+		color: #f50;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.preview-link {
+		color: #f50;
+		font-size: 11px;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.preview-link:hover {
 		text-decoration: underline;
 	}
 
